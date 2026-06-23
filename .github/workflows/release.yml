@@ -1,0 +1,300 @@
+name: Release Desktop Build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.5.4). Leave empty to use commit SHA."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "20"
+  APP_NAME: "One"
+  PORTABLE_NODE_VERSION: "20.18.1"
+
+jobs:
+  # =====================================================================
+  # 1. 公共预备：构建 Next.js 独立产物 + CLI 包（cli/app/）
+  #    把产物作为 artifact 上传，给两个平台 job 共用，避免重复构建
+  # =====================================================================
+  build-cli:
+    name: Build CLI bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install root dependencies
+        run: npm ci --no-audit --no-fund --ignore-scripts || npm install --no-audit --no-fund --ignore-scripts
+
+      - name: Install CLI dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
+        working-directory: cli
+
+      - name: Build CLI (Next.js standalone + bundled app)
+        run: node scripts/build-cli.js
+        working-directory: cli
+
+      - name: Prune build artifacts
+        shell: bash
+        run: |
+          # 仅保留发布所需的目录
+          rm -rf cli/.build-home cli/app/.next-cli-build/cache || true
+
+      - name: Upload CLI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-bundle
+          path: |
+            cli/cli.js
+            cli/package.json
+            cli/LICENSE
+            cli/README.md
+            cli/src/**
+            cli/hooks/**
+            cli/app/**
+          if-no-files-found: error
+          retention-days: 3
+
+  # =====================================================================
+  # 2. Windows x86 (x64)：用便携 Node + pkg 启动器，制作 ZIP + 安装目录
+  # =====================================================================
+  build-windows:
+    name: Build Windows (x64) .exe
+    needs: build-cli
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: cli
+
+      - name: Read app version
+        id: ver
+        shell: pwsh
+        run: |
+          $pkg = Get-Content cli/package.json | ConvertFrom-Json
+          "version=$($pkg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download portable Node.js (Windows x64)
+        shell: pwsh
+        run: |
+          $ver = "${{ env.PORTABLE_NODE_VERSION }}"
+          $url = "https://nodejs.org/dist/v$ver/node-v$ver-win-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath .
+          Rename-Item "node-v$ver-win-x64" "node-portable"
+
+      - name: Install pkg
+        run: npm install -g @yao-pkg/pkg
+
+      - name: Compile launcher to .exe
+        shell: pwsh
+        run: |
+          pkg scripts/desktop-launcher.js `
+            --targets node20-win-x64 `
+            --output "${{ env.APP_NAME }}.exe" `
+            --compress GZip
+
+      - name: Assemble release package
+        shell: pwsh
+        run: |
+          $stage = "stage-win"
+          New-Item -ItemType Directory -Force -Path "$stage/resources/node" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$stage/resources/cli" | Out-Null
+
+          # 1) 启动器 exe
+          Copy-Item "${{ env.APP_NAME }}.exe" "$stage/${{ env.APP_NAME }}.exe"
+
+          # 2) 便携 Node
+          Copy-Item -Recurse "node-portable/*" "$stage/resources/node/"
+
+          # 3) CLI bundle（cli/cli.js + app/ + src/ + hooks/ + package.json）
+          Copy-Item cli/cli.js "$stage/resources/cli/"
+          Copy-Item cli/package.json "$stage/resources/cli/"
+          if (Test-Path cli/LICENSE) { Copy-Item cli/LICENSE "$stage/resources/cli/" }
+          if (Test-Path cli/README.md) { Copy-Item cli/README.md "$stage/resources/cli/" }
+          Copy-Item -Recurse cli/src "$stage/resources/cli/src"
+          Copy-Item -Recurse cli/hooks "$stage/resources/cli/hooks"
+          Copy-Item -Recurse cli/app "$stage/resources/cli/app"
+
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $zip = "${{ env.APP_NAME }}-$ver-windows-x64.zip"
+          Compress-Archive -Path stage-win/* -DestinationPath $zip -CompressionLevel Optimal
+          "asset=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        id: pack
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.zip"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 3. macOS ARM (Apple Silicon)：.app bundle + .dmg
+  # =====================================================================
+  build-macos:
+    name: Build macOS (ARM64) .dmg
+    needs: build-cli
+    runs-on: macos-14   # Apple Silicon runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: cli
+
+      - name: Read app version
+        id: ver
+        run: |
+          VER=$(node -p "require('./cli/package.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Download portable Node.js (macOS arm64)
+        run: |
+          VER="${{ env.PORTABLE_NODE_VERSION }}"
+          curl -fsSLO "https://nodejs.org/dist/v$VER/node-v$VER-darwin-arm64.tar.gz"
+          tar -xzf "node-v$VER-darwin-arm64.tar.gz"
+          mv "node-v$VER-darwin-arm64" node-portable
+
+      - name: Install pkg
+        run: npm install -g @yao-pkg/pkg
+
+      - name: Compile launcher (macOS arm64)
+        run: |
+          pkg scripts/desktop-launcher.js \
+            --targets node20-macos-arm64 \
+            --output "${{ env.APP_NAME }}" \
+            --compress GZip
+
+      - name: Assemble .app bundle
+        run: |
+          APP="${{ env.APP_NAME }}.app"
+          mkdir -p "$APP/Contents/MacOS"
+          mkdir -p "$APP/Contents/Resources/one/node"
+          mkdir -p "$APP/Contents/Resources/one/cli"
+
+          # 启动器
+          mv "${{ env.APP_NAME }}" "$APP/Contents/MacOS/${{ env.APP_NAME }}"
+          chmod +x "$APP/Contents/MacOS/${{ env.APP_NAME }}"
+
+          # 便携 Node
+          cp -R node-portable/. "$APP/Contents/Resources/one/node/"
+
+          # CLI bundle
+          cp cli/cli.js "$APP/Contents/Resources/one/cli/"
+          cp cli/package.json "$APP/Contents/Resources/one/cli/"
+          [ -f cli/LICENSE ] && cp cli/LICENSE "$APP/Contents/Resources/one/cli/" || true
+          [ -f cli/README.md ] && cp cli/README.md "$APP/Contents/Resources/one/cli/" || true
+          cp -R cli/src "$APP/Contents/Resources/one/cli/src"
+          cp -R cli/hooks "$APP/Contents/Resources/one/cli/hooks"
+          cp -R cli/app "$APP/Contents/Resources/one/cli/app"
+
+          # Info.plist
+          cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>${{ env.APP_NAME }}</string>
+            <key>CFBundleDisplayName</key><string>${{ env.APP_NAME }}</string>
+            <key>CFBundleIdentifier</key><string>com.one.desktop</string>
+            <key>CFBundleVersion</key><string>${{ steps.ver.outputs.version }}</string>
+            <key>CFBundleShortVersionString</key><string>${{ steps.ver.outputs.version }}</string>
+            <key>CFBundleExecutable</key><string>${{ env.APP_NAME }}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>LSUIElement</key><false/>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Ad-hoc codesign .app
+        run: |
+          # 自签名，避免 Gatekeeper 直接拒绝；用户首次运行仍需右键打开
+          codesign --force --deep --sign - "${{ env.APP_NAME }}.app"
+
+      - name: Build .dmg
+        run: |
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64.dmg"
+          STAGE=dmg-stage
+          mkdir -p "$STAGE"
+          cp -R "${{ env.APP_NAME }}.app" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "${{ env.APP_NAME }}" \
+            -srcfolder "$STAGE" \
+            -ov -format ULFO \
+            "$DMG"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-macos-arm64.dmg"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 4. 创建/更新 GitHub Release，附带两份产物
+  # =====================================================================
+  release:
+    name: Publish Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64
+          path: dist
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist
+
+      - name: List artifacts
+        run: ls -lah dist
+
+      - name: Create / update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*.dmg

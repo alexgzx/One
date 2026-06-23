@@ -1,0 +1,128 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ============================================================
+# Dependencies
+# ============================================================
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ============================================================
+# Build output
+# ============================================================
+.next/
+.next-cli-build/
+/out/
+/build
+cli/.build-home/
+cli/app/
+product/
+
+# ============================================================
+# Release artifacts (local builds from scripts/desktop-launcher.js)
+# ============================================================
+release/
+*.exe
+*.dmg
+*.zip
+*.tgz
+*.tar.gz
+
+# ============================================================
+# Editor / IDE
+# ============================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ============================================================
+# OS files
+# ============================================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ============================================================
+# Logs & debug
+# ============================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+
+# ============================================================
+# Environment & secrets
+# ============================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# ============================================================
+# Runtime data (local DB, machine-id, etc.)
+# ============================================================
+data/
+logs/
+
+# ============================================================
+# TypeScript
+# ============================================================
+*.tsbuildinfo
+next-env.d.ts
+
+# ============================================================
+# Misc project-specific
+# ============================================================
+.bin/*
+.cursor/*
+source/*
+test/*
+open-sse/test/*
+docs/*
+!docs/ARCHITECTURE.md
+RM.vn.md
+RM.md
+PUBLIC.md
+PUBLIC.en.md
+Thanks.md
+PR/*
+README1.md
+deploy*.sh
+ecosystem.config.*
+scripts/agSniffer/*
+gitbooks/*
+.gitbook/
+.gitbook/README.md
+open-sse.old/
+.github/instructions/codacy.instructions.md
+
+# ============================================================
+# Vercel
+# ============================================================
+.vercel
+
+# ============================================================
+# PEM certs (generated at runtime by MITM proxy)
+# ============================================================
+*.pem
+
+# ============================================================
+# pkg cache (built binaries cache)
+# ============================================================
+.pkg-cache/
+
+# ============================================================
+# npm pack output
+# ============================================================
+cli-*.tgz
+9router-*.tgz
