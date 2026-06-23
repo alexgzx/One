@@ -145,11 +145,79 @@ jobs:
           "asset=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         id: pack
 
-      - name: Upload Windows artifact
+      # ---------- MSI 安装包 ----------
+      - name: Install WiX Toolset v4
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 4.0.5
+          wix --version
+
+      - name: Generate WiX source (Package.wxs)
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $appName = "${{ env.APP_NAME }}"
+          $wxs = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+            <Package Name="$appName"
+                     Manufacturer="$appName Project"
+                     Version="$ver"
+                     UpgradeCode="6F2B3C5E-9A8D-4E7B-9C1F-0123456789AB"
+                     Scope="perMachine"
+                     Compressed="yes">
+              <SummaryInformation Description="$appName Installer" />
+              <MajorUpgrade DowngradeErrorMessage="A newer version of $appName is already installed." />
+              <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+              <StandardDirectory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="$appName">
+                  <Files Include="stage-win\**" />
+                </Directory>
+              </StandardDirectory>
+
+              <StandardDirectory Id="ProgramMenuFolder">
+                <Directory Id="AppShortcutFolder" Name="$appName">
+                  <Component Id="AppShortcut" Guid="7A1D9F2E-3B4C-4A5D-8E6F-AABBCCDDEEFF">
+                    <Shortcut Id="AppStartMenuShortcut"
+                              Name="$appName"
+                              Description="Launch $appName"
+                              Target="[INSTALLFOLDER]$appName.exe"
+                              WorkingDirectory="INSTALLFOLDER" />
+                    <RemoveFolder Id="RemoveAppShortcutFolder" On="uninstall" />
+                    <RegistryValue Root="HKCU"
+                                   Key="Software\$appName"
+                                   Name="installed"
+                                   Type="integer" Value="1" KeyPath="yes" />
+                  </Component>
+                </Directory>
+              </StandardDirectory>
+
+              <Feature Id="Main" Title="$appName" Level="1">
+                <Files Include="stage-win\**" />
+                <ComponentRef Id="AppShortcut" />
+              </Feature>
+            </Package>
+          </Wix>
+          "@
+          Set-Content -Path Package.wxs -Value $wxs -Encoding UTF8
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $msi = "${{ env.APP_NAME }}-$ver-windows-x64.msi"
+          wix build -arch x64 -out $msi Package.wxs
+          if (!(Test-Path $msi)) { throw "MSI build failed: $msi not produced" }
+          Get-Item $msi | Select-Object Name, Length
+
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.zip"
+          path: |
+            ${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.zip
+            ${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.msi
           if-no-files-found: error
 
   # =====================================================================
@@ -297,4 +365,5 @@ jobs:
           generate_release_notes: true
           files: |
             dist/*.zip
+            dist/*.msi
             dist/*.dmg
