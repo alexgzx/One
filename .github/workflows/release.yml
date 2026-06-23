@@ -152,11 +152,41 @@ jobs:
           dotnet tool install --global wix --version 4.0.5
           wix --version
 
-      - name: Generate WiX source (Package.wxs)
+      - name: Generate WiX sources (Package.wxs + Files.wxs)
         shell: pwsh
         run: |
           $ver = "${{ steps.ver.outputs.version }}"
           $appName = "${{ env.APP_NAME }}"
+
+          # ---------- Files.wxs：枚举 stage-win 所有文件生成 Component ----------
+          $stageRoot = (Resolve-Path "stage-win").Path
+          $files = Get-ChildItem -Path $stageRoot -Recurse -File
+          $sb = New-Object System.Text.StringBuilder
+          [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
+          [void]$sb.AppendLine('<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">')
+          [void]$sb.AppendLine('  <Fragment>')
+          [void]$sb.AppendLine('    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">')
+          $i = 0
+          foreach ($f in $files) {
+            $i++
+            $rel = $f.FullName.Substring($stageRoot.Length).TrimStart('\','/')
+            $subdir = Split-Path $rel -Parent
+            $subdirAttr = ""
+            if ($subdir -and $subdir -ne "") {
+              $subdirAttr = " Subdirectory=`"$subdir`""
+            }
+            $src = "stage-win\$rel"
+            [void]$sb.AppendLine("      <Component Id=`"C$i`" Guid=`"*`"$subdirAttr>")
+            [void]$sb.AppendLine("        <File Id=`"F$i`" Source=`"$src`" KeyPath=`"yes`" />")
+            [void]$sb.AppendLine("      </Component>")
+          }
+          [void]$sb.AppendLine('    </ComponentGroup>')
+          [void]$sb.AppendLine('  </Fragment>')
+          [void]$sb.AppendLine('</Wix>')
+          Set-Content -Path Files.wxs -Value $sb.ToString() -Encoding UTF8
+          Write-Host "Generated Files.wxs with $i components"
+
+          # ---------- Package.wxs：主包描述 ----------
           $wxs = @"
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -173,10 +203,6 @@ jobs:
               <StandardDirectory Id="ProgramFiles64Folder">
                 <Directory Id="INSTALLFOLDER" Name="$appName" />
               </StandardDirectory>
-
-              <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-                <Files Include="stage-win\**" />
-              </ComponentGroup>
 
               <StandardDirectory Id="ProgramMenuFolder">
                 <Directory Id="AppShortcutFolder" Name="$appName">
@@ -209,7 +235,7 @@ jobs:
         run: |
           $ver = "${{ steps.ver.outputs.version }}"
           $msi = "${{ env.APP_NAME }}-$ver-windows-x64.msi"
-          wix build -arch x64 -out $msi Package.wxs
+          wix build -arch x64 -out $msi Package.wxs Files.wxs
           if (!(Test-Path $msi)) { throw "MSI build failed: $msi not produced" }
           Get-Item $msi | Select-Object Name, Length
 
