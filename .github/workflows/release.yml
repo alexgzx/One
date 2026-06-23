@@ -338,6 +338,81 @@ jobs:
         run: |
           # 自签名，避免 Gatekeeper 直接拒绝；用户首次运行仍需右键打开
           codesign --force --deep --sign - "${{ env.APP_NAME }}.app"
+          codesign --verify --verbose=2 "${{ env.APP_NAME }}.app" || echo "⚠️ codesign verify reported issues"
+
+      # =================================================================
+      # 🔥 macOS 端到端验证：真正启动 Next.js server + HTTP curl + 截图
+      # =================================================================
+      - name: 🔥 macOS E2E HTTP smoke test
+        id: e2e
+        run: |
+          set +e
+          APP_BIN="${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}"
+          PORT=20128
+          LOG="$RUNNER_TEMP/server.log"
+          mkdir -p "$RUNNER_TEMP/verify"
+
+          echo "▶️ 后台启动 $APP_BIN ..."
+          # </dev/null 模拟双击启动（无 TTY），避免陷入交互菜单
+          "$APP_BIN" --no-tray --skip-update --port $PORT </dev/null > "$LOG" 2>&1 &
+          PID=$!
+          echo "启动 PID=$PID"
+
+          echo "⏳ 轮询端口 $PORT（最多 90s）..."
+          UP=0
+          for i in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:$PORT/" -o /dev/null 2>/dev/null; then
+              echo "✅ Server up after ${i}s"
+              UP=1
+              break
+            fi
+            # 进程提前死亡 → 立即失败
+            if ! kill -0 $PID 2>/dev/null; then
+              echo "❌ Launcher 进程提前退出"
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$UP" != "1" ]; then
+            echo "❌ HTTP 端点超时未就绪"
+            echo "---- 服务日志（后 200 行）----"
+            tail -200 "$LOG" || true
+            cp "$LOG" "$RUNNER_TEMP/verify/server.log" 2>/dev/null || true
+            screencapture -x -t png "$RUNNER_TEMP/verify/00-failed.png" 2>/dev/null || true
+            kill $PID 2>/dev/null
+            exit 1
+          fi
+
+          echo "🔎 校验关键路由"
+          set -e
+          curl -fsS -o "$RUNNER_TEMP/verify/home.html"      -w "GET /            → HTTP %{http_code}  (%{size_download} bytes)\n" "http://127.0.0.1:$PORT/"
+          curl -fsS -o "$RUNNER_TEMP/verify/dashboard.html" -w "GET /dashboard   → HTTP %{http_code}  (%{size_download} bytes)\n" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard 非 2xx"
+          curl -fsS -o "$RUNNER_TEMP/verify/favicon.svg"    -w "GET /favicon.svg → HTTP %{http_code}\n" "http://127.0.0.1:$PORT/favicon.svg" || true
+          set +e
+
+          echo "📸 截图：服务运行中的桌面"
+          screencapture -x -t png "$RUNNER_TEMP/verify/01-desktop.png" || true
+
+          # 用 open 模拟 Finder 双击，让 Dock 出现图标
+          open -ga "${{ env.APP_NAME }}.app" 2>/dev/null || true
+          sleep 3
+          screencapture -x -t png "$RUNNER_TEMP/verify/02-after-open.png" || true
+
+          echo "---- 服务日志（后 60 行）----"
+          tail -60 "$LOG" || true
+          cp "$LOG" "$RUNNER_TEMP/verify/server.log" || true
+
+          echo "🧹 优雅退出"
+          kill $PID 2>/dev/null
+          for i in 1 2 3 4 5; do
+            kill -0 $PID 2>/dev/null || break
+            sleep 1
+          done
+          kill -9 $PID 2>/dev/null || true
+          pkill -f "${{ env.APP_NAME }}.app" 2>/dev/null || true
+
+          echo "✅ E2E smoke test 通过"
 
       - name: Build .dmg
         run: |
@@ -351,6 +426,32 @@ jobs:
             -srcfolder "$STAGE" \
             -ov -format ULFO \
             "$DMG"
+
+      - name: 🔍 Verify .dmg by mounting
+        run: |
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64.dmg"
+          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
+          echo "Mounted at: $MOUNTPOINT"
+          ls -la "$MOUNTPOINT"
+          test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          # 验证签名链
+          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
+          # 关键文件存在性
+          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist" "Contents/Resources/one/cli/cli.js" "Contents/Resources/one/cli/app/server.js" "Contents/Resources/one/node/bin/node"; do
+            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || { echo "❌ Missing: $f"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          done
+          hdiutil detach "$MOUNTPOINT"
+          echo "✅ DMG 内部结构校验通过"
+
+      - name: 📸 Upload macOS verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/verify/**
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
