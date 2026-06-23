@@ -171,10 +171,12 @@ jobs:
               <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
               <StandardDirectory Id="ProgramFiles64Folder">
-                <Directory Id="INSTALLFOLDER" Name="$appName">
-                  <Files Include="stage-win\**" />
-                </Directory>
+                <Directory Id="INSTALLFOLDER" Name="$appName" />
               </StandardDirectory>
+
+              <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+                <Files Include="stage-win\**" />
+              </ComponentGroup>
 
               <StandardDirectory Id="ProgramMenuFolder">
                 <Directory Id="AppShortcutFolder" Name="$appName">
@@ -194,7 +196,7 @@ jobs:
               </StandardDirectory>
 
               <Feature Id="Main" Title="$appName" Level="1">
-                <Files Include="stage-win\**" />
+                <ComponentGroupRef Id="AppFiles" />
                 <ComponentRef Id="AppShortcut" />
               </Feature>
             </Package>
