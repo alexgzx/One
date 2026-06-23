@@ -151,6 +151,9 @@ jobs:
         run: |
           dotnet tool install --global wix --version 4.0.5
           wix --version
+          # 安装 UI 扩展（提供 WixUI_InstallDir 向导界面）
+          wix extension add -g WixToolset.UI.wixext/4.0.5
+          wix extension list -g
 
       - name: Generate WiX sources (Package.wxs + Files.wxs)
         shell: pwsh
@@ -189,21 +192,35 @@ jobs:
           # ---------- Package.wxs：主包描述 ----------
           $wxs = @"
           <?xml version="1.0" encoding="UTF-8"?>
-          <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+               xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
             <Package Name="$appName"
                      Manufacturer="$appName Project"
                      Version="$ver"
                      UpgradeCode="6F2B3C5E-9A8D-4E7B-9C1F-0123456789AB"
                      Scope="perMachine"
-                     Compressed="yes">
+                     Compressed="yes"
+                     InstallerVersion="500">
               <SummaryInformation Description="$appName Installer" />
               <MajorUpgrade DowngradeErrorMessage="A newer version of $appName is already installed." />
               <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+              <!-- WixUI_InstallDir 向导：欢迎 → 许可 → 选路径 → 安装 → 完成 -->
+              <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+              <UIRef Id="WixUI_ErrorProgressText" />
+
+              <!-- "程序和功能" 元数据 -->
+              <Property Id="ARPCONTACT" Value="$appName Project" />
+              <Property Id="ARPHELPLINK" Value="https://github.com/${{ github.repository }}" />
+              <Property Id="ARPURLINFOABOUT" Value="https://github.com/${{ github.repository }}" />
+              <Property Id="ARPNOMODIFY" Value="1" />
+              <Property Id="ARPNOREPAIR" Value="1" />
 
               <StandardDirectory Id="ProgramFiles64Folder">
                 <Directory Id="INSTALLFOLDER" Name="$appName" />
               </StandardDirectory>
 
+              <!-- 开始菜单快捷方式 -->
               <StandardDirectory Id="ProgramMenuFolder">
                 <Directory Id="AppShortcutFolder" Name="$appName">
                   <Component Id="AppShortcut" Guid="7A1D9F2E-3B4C-4A5D-8E6F-AABBCCDDEEFF">
@@ -221,9 +238,25 @@ jobs:
                 </Directory>
               </StandardDirectory>
 
-              <Feature Id="Main" Title="$appName" Level="1">
+              <!-- 桌面快捷方式 -->
+              <StandardDirectory Id="DesktopFolder">
+                <Component Id="DesktopShortcut" Guid="3D8B4F1A-5C2E-4B7D-9F8E-CCDDEEFF1122">
+                  <Shortcut Id="AppDesktopShortcut"
+                            Name="$appName"
+                            Description="Launch $appName"
+                            Target="[INSTALLFOLDER]$appName.exe"
+                            WorkingDirectory="INSTALLFOLDER" />
+                  <RegistryValue Root="HKCU"
+                                 Key="Software\$appName"
+                                 Name="desktop"
+                                 Type="integer" Value="1" KeyPath="yes" />
+                </Component>
+              </StandardDirectory>
+
+              <Feature Id="Main" Title="$appName Core" Level="1" AllowAdvertise="no" Display="expand">
                 <ComponentGroupRef Id="AppFiles" />
                 <ComponentRef Id="AppShortcut" />
+                <ComponentRef Id="DesktopShortcut" />
               </Feature>
             </Package>
           </Wix>
@@ -235,9 +268,24 @@ jobs:
         run: |
           $ver = "${{ steps.ver.outputs.version }}"
           $msi = "${{ env.APP_NAME }}-$ver-windows-x64.msi"
-          wix build -arch x64 -out $msi Package.wxs Files.wxs
+          wix build -arch x64 -ext WixToolset.UI.wixext -out $msi Package.wxs Files.wxs
           if (!(Test-Path $msi)) { throw "MSI build failed: $msi not produced" }
-          Get-Item $msi | Select-Object Name, Length
+          $info = Get-Item $msi
+          Write-Host "✅ MSI built: $($info.Name)  $([math]::Round($info.Length/1MB,2)) MB"
+
+          # 诊断：MSI 内部文件清单 + stage-win 原始大小对比
+          $stageBytes = (Get-ChildItem -Recurse -File stage-win | Measure-Object -Property Length -Sum).Sum
+          $stageCount = (Get-ChildItem -Recurse -File stage-win).Count
+          Write-Host "📊 stage-win 原始大小：$([math]::Round($stageBytes/1MB,2)) MB （$stageCount 个文件）"
+          Write-Host "📊 MSI 压缩后：$([math]::Round($info.Length/1MB,2)) MB"
+          Write-Host "📊 压缩率：$([math]::Round($info.Length / $stageBytes * 100, 1))%"
+
+          # 验证 Files.wxs 中 Component 数量与 stage-win 文件数一致
+          $componentCount = (Select-String -Path Files.wxs -Pattern '<Component Id="C\d+').Count
+          Write-Host "📊 Files.wxs 中 Component 数：$componentCount"
+          if ($componentCount -ne $stageCount) {
+            Write-Warning "⚠️ Component 数与文件数不一致！可能有文件漏打包"
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

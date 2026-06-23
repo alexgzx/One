@@ -237,6 +237,58 @@ if (fs.existsSync(staticSrcResolved) || fs.existsSync(staticSrc)) {
   console.log("⏭️  No static files found\n");
 }
 
+// Step 4b: Copy Next.js build metadata that standalone mode DOES NOT include
+// by default. Without these (BUILD_ID, manifests, server/), `next start`
+// errors out with "Could not find a production build in the './.next-cli-build' directory".
+console.log("4️⃣ b Copying Next.js build metadata (BUILD_ID, manifests, server/)...");
+const metadataItems = [
+  "BUILD_ID",
+  "required-server-files.json",
+  "prerender-manifest.json",
+  "routes-manifest.json",
+  "app-build-manifest.json",
+  "build-manifest.json",
+  "react-loadable-manifest.json",
+  "images-manifest.json",
+  "app-path-routes-manifest.json",
+  "functions-config-manifest.json",
+  "next-minimal-server.js.nft.json",
+  "next-server.js.nft.json",
+  "package.json",
+  "server",
+];
+const metaSrcRoot = fs.existsSync(buildDistDir) ? buildDistDir : path.join(appDir, ".next");
+const metaDestRoot = path.join(cliAppDir, buildDistDirName);
+fs.mkdirSync(metaDestRoot, { recursive: true });
+let copiedMeta = 0;
+for (const item of metadataItems) {
+  const src = path.join(metaSrcRoot, item);
+  const dest = path.join(metaDestRoot, item);
+  if (!fs.existsSync(src)) continue;
+  const st = fs.statSync(src);
+  if (st.isDirectory()) {
+    copyRecursive(src, dest);
+  } else {
+    if (fs.existsSync(dest)) continue; // never overwrite standalone's own files
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(src, dest);
+  }
+  copiedMeta++;
+  console.log(`   ✓ ${item}`);
+}
+console.log(`✅ Copied ${copiedMeta} metadata items\n`);
+
+// Step 4c: Self-check — fail fast if BUILD_ID is missing, since Next.js server
+// will refuse to start without it.
+const buildIdPath = path.join(cliAppDir, buildDistDirName, "BUILD_ID");
+if (!fs.existsSync(buildIdPath)) {
+  console.error(`❌ CRITICAL: ${buildIdPath} not found after copy.`);
+  console.error(`   Server will fail with "Could not find a production build".`);
+  console.error(`   Checked source: ${path.join(metaSrcRoot, "BUILD_ID")} exists? ${fs.existsSync(path.join(metaSrcRoot, "BUILD_ID"))}`);
+  process.exit(1);
+}
+console.log(`✅ Verified BUILD_ID exists at ${path.relative(cliDir, buildIdPath)}\n`);
+
 // Step 5: Copy public folder if exists
 console.log("5️⃣  Copying public folder...");
 const publicSrc = path.join(appDir, "public");
@@ -295,10 +347,44 @@ try {
 console.log("✨ CLI package build completed!");
 console.log(`📁 Output: ${cliAppDir}`);
 
-try {
-  const { execSync: exec } = require("child_process");
-  const size = exec(`du -sh "${cliAppDir}"`, { encoding: "utf8" }).trim();
-  console.log(`📊 Package size: ${size.split("\t")[0]}`);
-} catch (e) {
-  // Silent fail on size check
+// Cross-platform size + file count summary so CI logs always show what shipped.
+function statTree(root) {
+  let totalSize = 0;
+  let fileCount = 0;
+  const stack = [root];
+  while (stack.length) {
+    const cur = stack.pop();
+    let entries;
+    try { entries = fs.readdirSync(cur, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const p = path.join(cur, e.name);
+      try {
+        if (e.isDirectory()) stack.push(p);
+        else if (e.isFile()) { totalSize += fs.statSync(p).size; fileCount++; }
+      } catch {}
+    }
+  }
+  return { totalSize, fileCount };
 }
+
+function fmtMB(bytes) {
+  return (bytes / 1024 / 1024).toFixed(2) + " MB";
+}
+
+const stats = statTree(cliAppDir);
+console.log(`📊 cli/app/        total: ${fmtMB(stats.totalSize)}  (${stats.fileCount} files)`);
+
+// Break down by top-level subdirectory so size regressions are obvious.
+try {
+  const entries = fs.readdirSync(cliAppDir, { withFileTypes: true });
+  const rows = [];
+  for (const e of entries) {
+    const p = path.join(cliAppDir, e.name);
+    const s = e.isDirectory() ? statTree(p) : { totalSize: fs.statSync(p).size, fileCount: 1 };
+    rows.push({ name: e.name, size: s.totalSize, count: s.fileCount });
+  }
+  rows.sort((a, b) => b.size - a.size);
+  for (const r of rows) {
+    console.log(`   ${r.name.padEnd(30)} ${fmtMB(r.size).padStart(12)}  (${r.count} files)`);
+  }
+} catch {}
