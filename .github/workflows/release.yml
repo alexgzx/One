@@ -213,8 +213,7 @@ jobs:
               <Property Id="ARPCONTACT" Value="$appName Project" />
               <Property Id="ARPHELPLINK" Value="https://github.com/${{ github.repository }}" />
               <Property Id="ARPURLINFOABOUT" Value="https://github.com/${{ github.repository }}" />
-              <Property Id="ARPNOMODIFY" Value="1" />
-              <Property Id="ARPNOREPAIR" Value="1" />
+              <!-- 注意：ARPNOMODIFY / ARPNOREPAIR 已由 WixUI_InstallDir 内部定义，不能重复 -->
 
               <StandardDirectory Id="ProgramFiles64Folder">
                 <Directory Id="INSTALLFOLDER" Name="$appName" />
@@ -401,14 +400,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/verify"
 
           echo "▶️ 后台启动 $APP_BIN ..."
-          # </dev/null 模拟双击启动（无 TTY），避免陷入交互菜单
-          "$APP_BIN" --no-tray --skip-update --port $PORT </dev/null > "$LOG" 2>&1 &
+          # 用 BSD `script` 分配伪 TTY，避免 CLI 检测到非 TTY 自动进入 tray 模式
+          # （tray 模式在 GitHub macOS runner 无 GUI session 上会立即失败）
+          # macOS 的 script 语法：script -q /dev/null <cmd...>
+          script -q /dev/null "$APP_BIN" --log --port $PORT > "$LOG" 2>&1 &
           PID=$!
           echo "启动 PID=$PID"
 
-          echo "⏳ 轮询端口 $PORT（最多 90s）..."
+          echo "⏳ 轮询端口 $PORT（最多 120s）..."
           UP=0
-          for i in $(seq 1 90); do
+          for i in $(seq 1 120); do
             if curl -fsS "http://127.0.0.1:$PORT/" -o /dev/null 2>/dev/null; then
               echo "✅ Server up after ${i}s"
               UP=1
@@ -429,6 +430,7 @@ jobs:
             cp "$LOG" "$RUNNER_TEMP/verify/server.log" 2>/dev/null || true
             screencapture -x -t png "$RUNNER_TEMP/verify/00-failed.png" 2>/dev/null || true
             kill $PID 2>/dev/null
+            pkill -f "${{ env.APP_NAME }}.app" 2>/dev/null || true
             exit 1
           fi
 
