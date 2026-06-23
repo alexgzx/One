@@ -52,18 +52,29 @@ jobs:
           # 仅保留发布所需的目录
           rm -rf cli/.build-home cli/app/.next-cli-build/cache || true
 
+      - name: Pack CLI bundle (preserve dotfiles/dot-dirs)
+        shell: bash
+        run: |
+          # 直接 tar 打包，规避 actions/upload-artifact glob 对 .next-cli-build 等
+          # 点开头目录的过滤问题
+          tar -czf cli-bundle.tar.gz \
+            cli/cli.js \
+            cli/package.json \
+            cli/LICENSE \
+            cli/README.md \
+            cli/src \
+            cli/hooks \
+            cli/app \
+            cli/node_modules
+          ls -lh cli-bundle.tar.gz
+          # 内容自检：确认关键文件在 tar 包里
+          tar -tzf cli-bundle.tar.gz | grep -E "(BUILD_ID|node-machine-id/package\.json)" | head -10
+
       - name: Upload CLI bundle
         uses: actions/upload-artifact@v4
         with:
           name: cli-bundle
-          path: |
-            cli/cli.js
-            cli/package.json
-            cli/LICENSE
-            cli/README.md
-            cli/src/**
-            cli/hooks/**
-            cli/app/**
+          path: cli-bundle.tar.gz
           if-no-files-found: error
           retention-days: 3
 
@@ -85,7 +96,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cli-bundle
-          path: cli
+          path: .
+
+      - name: Extract CLI bundle
+        shell: bash
+        run: |
+          tar -xzf cli-bundle.tar.gz
+          ls -la cli/
+          # 验证关键文件
+          test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
+          test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
 
       - name: Read app version
         id: ver
@@ -127,7 +147,7 @@ jobs:
           # 2) 便携 Node
           Copy-Item -Recurse "node-portable/*" "$stage/resources/node/"
 
-          # 3) CLI bundle（cli/cli.js + app/ + src/ + hooks/ + package.json）
+          # 3) CLI bundle（cli/cli.js + app/ + src/ + hooks/ + package.json + node_modules/）
           Copy-Item cli/cli.js "$stage/resources/cli/"
           Copy-Item cli/package.json "$stage/resources/cli/"
           if (Test-Path cli/LICENSE) { Copy-Item cli/LICENSE "$stage/resources/cli/" }
@@ -135,6 +155,9 @@ jobs:
           Copy-Item -Recurse cli/src "$stage/resources/cli/src"
           Copy-Item -Recurse cli/hooks "$stage/resources/cli/hooks"
           Copy-Item -Recurse cli/app "$stage/resources/cli/app"
+          if (Test-Path cli/node_modules) {
+            Copy-Item -Recurse cli/node_modules "$stage/resources/cli/node_modules"
+          }
 
       - name: Create ZIP archive
         shell: pwsh
@@ -313,7 +336,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cli-bundle
-          path: cli
+          path: .
+
+      - name: Extract CLI bundle
+        run: |
+          tar -xzf cli-bundle.tar.gz
+          ls -la cli/
+          test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
+          test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
 
       - name: Read app version
         id: ver
@@ -352,7 +382,7 @@ jobs:
           # 便携 Node
           cp -R node-portable/. "$APP/Contents/Resources/one/node/"
 
-          # CLI bundle
+          # CLI bundle（含 node_modules）
           cp cli/cli.js "$APP/Contents/Resources/one/cli/"
           cp cli/package.json "$APP/Contents/Resources/one/cli/"
           [ -f cli/LICENSE ] && cp cli/LICENSE "$APP/Contents/Resources/one/cli/" || true
@@ -360,6 +390,9 @@ jobs:
           cp -R cli/src "$APP/Contents/Resources/one/cli/src"
           cp -R cli/hooks "$APP/Contents/Resources/one/cli/hooks"
           cp -R cli/app "$APP/Contents/Resources/one/cli/app"
+          if [ -d cli/node_modules ]; then
+            cp -R cli/node_modules "$APP/Contents/Resources/one/cli/node_modules"
+          fi
 
           # Info.plist
           cat > "$APP/Contents/Info.plist" <<PLIST
