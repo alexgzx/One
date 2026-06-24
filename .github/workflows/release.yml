@@ -46,6 +46,71 @@ jobs:
         run: node scripts/build-cli.js
         working-directory: cli
 
+      - name: Generate tray icons from public/favicon.svg
+        shell: bash
+        run: |
+          set -e
+          echo "🎨 从 public/favicon.svg 生成托盘图标..."
+          # 临时安装转换工具（不写入项目 package.json）
+          npm install --no-save --no-audit --no-fund sharp@^0.33 png-to-ico@^2 2>&1 | tail -3
+          node -e "
+            const sharp = require('sharp');
+            const pngToIco = require('png-to-ico');
+            const fs = require('fs');
+            const path = require('path');
+            const svg = fs.readFileSync('public/favicon.svg');
+            const trayDir = 'cli/src/cli/tray';
+
+            (async () => {
+              // 1) icon.png：256x256（systray on macOS/Linux）
+              await sharp(svg, { density: 384 })
+                .resize(256, 256, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                .png()
+                .toFile(path.join(trayDir, 'icon.png'));
+              console.log('✅ Generated icon.png (256x256)');
+
+              // 2) icon.ico：Windows 多分辨率（16/32/48/64/256）
+              const sizes = [16, 32, 48, 64, 256];
+              const buffers = [];
+              for (const s of sizes) {
+                buffers.push(await sharp(svg, { density: 384 })
+                  .resize(s, s, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                  .png()
+                  .toBuffer());
+              }
+              const ico = await pngToIco(buffers);
+              fs.writeFileSync(path.join(trayDir, 'icon.ico'), ico);
+              console.log('✅ Generated icon.ico (' + sizes.join('/') + ')');
+            })();
+          "
+          # 校验
+          ls -la cli/src/cli/tray/icon.*
+          test -s cli/src/cli/tray/icon.png && echo "✅ icon.png ok"
+          test -s cli/src/cli/tray/icon.ico && echo "✅ icon.ico ok"
+
+      - name: Ensure SQLite runtime is bundled (sql.js wasm + better-sqlite3 native)
+        shell: bash
+        run: |
+          set -e
+          # 1) sql.js：纯 JS + wasm，跨平台。必须把 dist/sql-wasm.wasm 也带上
+          echo "📦 强制安装 sql.js 到 cli/app/node_modules ..."
+          mkdir -p cli/app/node_modules
+          cd cli/app
+          # 用临时 package.json 避免污染 cli/app/package.json
+          if [ ! -f package.json ]; then
+            echo '{"name":"_bundled","private":true}' > package.json
+          fi
+          npm install sql.js@latest --no-audit --no-fund --no-save --prefer-online
+          cd ../..
+          # 验证 wasm 存在
+          WASM="cli/app/node_modules/sql.js/dist/sql-wasm.wasm"
+          if [ ! -f "$WASM" ]; then
+            echo "❌ $WASM missing after install"
+            ls -la cli/app/node_modules/sql.js/dist/ || true
+            exit 1
+          fi
+          echo "✅ $WASM ($(stat -c%s "$WASM" 2>/dev/null || stat -f%z "$WASM") bytes)"
+
       - name: Prune build artifacts
         shell: bash
         run: |
@@ -68,7 +133,13 @@ jobs:
             cli/node_modules
           ls -lh cli-bundle.tar.gz
           # 内容自检：确认关键文件在 tar 包里
-          tar -tzf cli-bundle.tar.gz | grep -E "(BUILD_ID|node-machine-id/package\.json)" | head -10
+          tar -tzf cli-bundle.tar.gz | grep -E "(BUILD_ID|node-machine-id/package\.json|sql\.js/dist/sql-wasm\.wasm)" | head -20
+          # 显式校验 wasm 在内
+          if ! tar -tzf cli-bundle.tar.gz | grep -q "sql\.js/dist/sql-wasm\.wasm"; then
+            echo "❌ sql-wasm.wasm NOT IN ARCHIVE"
+            exit 1
+          fi
+          echo "✅ sql-wasm.wasm is packed"
 
       - name: Upload CLI bundle
         uses: actions/upload-artifact@v4
@@ -106,6 +177,7 @@ jobs:
           # 验证关键文件
           test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
           test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
+          test -f cli/app/node_modules/sql.js/dist/sql-wasm.wasm && echo "✅ sql-wasm.wasm present" || { echo "❌ sql-wasm.wasm missing"; exit 1; }
 
       - name: Read app version
         id: ver
@@ -344,6 +416,7 @@ jobs:
           ls -la cli/
           test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
           test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
+          test -f cli/app/node_modules/sql.js/dist/sql-wasm.wasm && echo "✅ sql-wasm.wasm present" || { echo "❌ sql-wasm.wasm missing"; exit 1; }
 
       - name: Read app version
         id: ver

@@ -58,14 +58,14 @@ function initTray(options) {
  */
 function buildMenuItems(port, autostartEnabled) {
   return [
-    { title: `9Router (Port ${port})`, tooltip: "Server is running", enabled: false },
-    { title: "Open Dashboard", tooltip: "Open in browser", enabled: true },
+    { title: `One（端口 ${port}）`, tooltip: "服务运行中", enabled: false },
+    { title: "打开控制台", tooltip: "在浏览器中打开", enabled: true },
     {
-      title: autostartEnabled ? "✓ Auto-start Enabled" : "Enable Auto-start",
-      tooltip: "Run on OS startup",
+      title: autostartEnabled ? "✓ 开机自启已开启" : "开启开机自启",
+      tooltip: "随系统开机启动",
       enabled: true
     },
-    { title: "Quit", tooltip: "Stop server and exit", enabled: true }
+    { title: "退出", tooltip: "停止服务并退出", enabled: true }
   ];
 }
 
@@ -101,7 +101,7 @@ function handleClick(index, options, onAutostartToggle) {
       onAutostartToggle(!enabled);
     } catch (e) {}
   } else if (index === MENU_INDEX.QUIT) {
-    console.log("\n👋 Shutting down...");
+    console.log("\n👋 正在退出 ...");
     if (onQuit) onQuit();
     killTray();
     setTimeout(() => process.exit(0), 500);
@@ -121,11 +121,11 @@ function initWindowsTray(options) {
 
     trayInstance = initWinTray({
       iconPath,
-      tooltip: `9Router - Port ${port}`,
+      tooltip: `One - 端口 ${port}`,
       items,
       onClick: (index) => {
         handleClick(index, options, (newEnabled) => {
-          const newTitle = newEnabled ? "✓ Auto-start Enabled" : "Enable Auto-start";
+          const newTitle = newEnabled ? "✓ 开机自启已开启" : "开启开机自启";
           trayInstance.updateItem(MENU_INDEX.AUTOSTART, newTitle, true);
         });
       }
@@ -204,7 +204,7 @@ function initUnixTray(options) {
       // because template mode only uses the alpha channel.
       isTemplateIcon: false,
       title: "",
-      tooltip: `9Router - Port ${port}`,
+      tooltip: `One - 端口 ${port}`,
       items
     };
 

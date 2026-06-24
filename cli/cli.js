@@ -108,17 +108,17 @@ for (let i = 0; i < args.length; i++) {
     process.env.TRAY_MODE = "1";
   } else if (args[i] === "--help" || args[i] === "-h") {
     console.log(`
-Usage: ${APP_NAME} [options]
+用法：${APP_NAME} [选项]
 
-Options:
-  -p, --port <port>   Port to run the server (default: ${DEFAULT_PORT})
-  -H, --host <host>   Host to bind (default: ${DEFAULT_HOST})
-  -n, --no-browser    Don't open browser automatically
-  -l, --log           Show server logs (default: hidden)
-  -t, --tray          Run in system tray mode (background)
-  --skip-update       Skip auto-update check
-  -h, --help          Show this help message
-  -v, --version       Show version
+选项：
+  -p, --port <端口>    服务监听端口（默认：${DEFAULT_PORT}）
+  -H, --host <主机>    绑定地址（默认：${DEFAULT_HOST}）
+  -n, --no-browser     不自动打开浏览器
+  -l, --log            显示服务日志（默认隐藏）
+  -t, --tray           以系统托盘模式后台运行
+  --skip-update        跳过自动更新检查
+  -h, --help           显示帮助信息
+  -v, --version        显示版本号
 `);
     process.exit(0);
   } else if (args[i] === "--version" || args[i] === "-v") {
@@ -424,7 +424,7 @@ function checkForUpdate() {
       return;
     }
 
-    const spinner = createSpinner("Checking for updates...").start();
+    const spinner = createSpinner("正在检查更新 ...").start();
     let resolved = false;
 
     const safetyTimeout = setTimeout(() => {
@@ -480,7 +480,7 @@ function openBrowser(url) {
 
   exec(cmd, { windowsHide: true }, (err) => {
     if (err) {
-      console.log(`Open browser manually: ${url}`);
+      console.log(`请手动在浏览器中打开：${url}`);
     }
   });
 }
@@ -494,8 +494,8 @@ const serverPath = fs.existsSync(customServerPath)
   : path.join(standaloneDir, "server.js");
 
 if (!fs.existsSync(serverPath)) {
-  console.error("Error: Standalone build not found.");
-  console.error("Please run 'npm run build:cli' first.");
+  console.error("错误：未找到打包后的服务端文件。");
+  console.error("请先运行 'npm run build:cli'。");
   process.exit(1);
 }
 
@@ -527,22 +527,22 @@ async function showInterfaceMenu(latestVersion) {
     serverUrl = `http://${displayHost}:${port}`;
   }
 
-  const subtitle = `🚀 Server: \x1b[32m${serverUrl}\x1b[0m`;
+  const subtitle = `🚀 服务地址：\x1b[32m${serverUrl}\x1b[0m`;
 
   const menuItems = [];
 
   if (latestVersion) {
-    menuItems.push({ label: `Update to v${latestVersion} (current: v${pkg.version})`, icon: "⬆" });
+    menuItems.push({ label: `升级到 v${latestVersion}（当前 v${pkg.version}）`, icon: "⬆" });
   }
 
   menuItems.push(
-    { label: "Web UI (Open in Browser)", icon: "🌐" },
-    { label: "Terminal UI (Interactive CLI)", icon: "💻" },
-    { label: "Hide to Tray (Background)", icon: "🔔" },
-    { label: "Exit", icon: "🚪" }
+    { label: "网页控制台（浏览器打开）", icon: "🌐" },
+    { label: "终端控制台（交互式 CLI）", icon: "💻" },
+    { label: "隐藏到托盘（后台运行）", icon: "🔔" },
+    { label: "退出", icon: "🚪" }
   );
 
-  const selected = await selectMenu(`Choose Interface (v${pkg.version})`, menuItems, 0, subtitle);
+  const selected = await selectMenu(`选择运行模式（v${pkg.version}）`, menuItems, 0, subtitle);
 
   const offset = latestVersion ? 1 : 0;
 
@@ -562,7 +562,7 @@ function startServer(latestVersion) {
   // Surface real network exposure when bound to all interfaces (default 0.0.0.0).
   if (host === DEFAULT_HOST) {
     const lanIp = getLanIp();
-    if (lanIp) console.log(`\x1b[33m⚠ Network-exposed: reachable at http://${lanIp}:${port} (bound 0.0.0.0). Use --host 127.0.0.1 for local-only.\x1b[0m`);
+    if (lanIp) console.log(`\x1b[33m⚠ 网络可访问：通过 http://${lanIp}:${port} 可达（绑定到 0.0.0.0）。如需仅本机访问请加 --host 127.0.0.1。\x1b[0m`);
   }
 
   let restartCount = 0;
@@ -625,14 +625,14 @@ function startServer(latestVersion) {
   let isShuttingDown = false;
   process.on("uncaughtException", (err) => {
     if (isShuttingDown) return;
-    console.error("Error:", err.message);
+    console.error("错误：", err.message);
   });
 
   // Handle all exit scenarios
   process.on("SIGINT", () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
-    console.log("\nExiting...");
+    console.log("\n正在退出 ...");
     cleanup();
     setTimeout(() => process.exit(0), 100);
   });
@@ -657,7 +657,7 @@ function startServer(latestVersion) {
         port,
         onQuit: () => {
           isShuttingDown = true;
-          console.log("\n👋 Shutting down from tray...");
+          console.log("\n👋 已从托盘退出 ...");
           cleanup();
           setTimeout(() => process.exit(0), 100);
         },
@@ -674,13 +674,13 @@ function startServer(latestVersion) {
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
 
-    console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
-    console.log(`Server: http://${displayHost}:${port}`);
+    console.log(`\n🚀 One v${pkg.version}`);
+    console.log(`服务地址：http://${displayHost}:${port}`);
 
     setTimeout(() => {
       initTrayIcon();
-      console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
-      console.log("   Right-click tray icon to open dashboard or quit.\n");
+      console.log("\n💡 服务已在系统托盘后台运行，可以关闭此终端窗口。");
+      console.log("   右键托盘图标可打开控制台或退出。\n");
     }, 2000);
 
     return;
@@ -699,8 +699,8 @@ function startServer(latestVersion) {
           isShuttingDown = true;
           const { clearScreen } = require("./src/cli/utils/display");
           clearScreen();
-          console.log(`\n⬆  Update v${pkg.version} → v${latestVersion}\n`);
-          console.log(`Run this after exit:\n`);
+          console.log(`\n⬆  发现新版本 v${pkg.version} → v${latestVersion}\n`);
+          console.log(`退出后请运行以下命令更新：\n`);
           console.log(`   \x1b[33m${INSTALL_CMD_LATEST}\x1b[0m\n`);
           cleanup();
           await killAllAppProcesses(port);
@@ -711,7 +711,7 @@ function startServer(latestVersion) {
           openBrowser(url);
           // Wait for user to come back
           const { pause } = require("./src/cli/utils/input");
-          await pause("\nPress Enter to go back to menu...");
+          await pause("\n按回车键返回菜单 ...");
         } else if (choice === "terminal") {
           // Start Terminal UI - it will return when user selects Back
           const { startTerminalUI } = require("./src/cli/terminalUI");
@@ -733,17 +733,17 @@ function startServer(latestVersion) {
             process.removeAllListeners("SIGHUP");
             process.on("SIGHUP", () => {});
 
-            console.log(`\n⏳ Switching to tray mode... (icon already visible in menu bar)`);
-            console.log(`🔔 9Router is running in tray (PID: ${process.pid})`);
-            console.log(`   Server: http://${displayHost}:${port}`);
-            console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
+            console.log(`\n⏳ 正在切换到托盘模式 ...（菜单栏图标已显示）`);
+            console.log(`🔔 One 正在托盘中运行（PID：${process.pid}）`);
+            console.log(`   服务地址：http://${displayHost}:${port}`);
+            console.log(`\n💡 现在可以关闭此终端窗口。右键托盘图标可退出。\n`);
 
             // Tray already init'd at startup — just keep event loop alive.
             return;
           }
 
           // Windows/Linux: spawn detached bgProcess (systray works fine in child)
-          console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
+          console.log(`\n⏳ 正在启动后台进程 ...（托盘图标约 3 秒后出现）`);
 
           const bgProcess = spawn(process.execPath, [__filename, "--tray", "--skip-update", "-p", port.toString()], {
             detached: true,
@@ -753,22 +753,22 @@ function startServer(latestVersion) {
           });
           bgProcess.unref();
 
-          console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
-          console.log(`   Server: http://${displayHost}:${port}`);
-          console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
+          console.log(`🔔 One 已切换到后台运行（PID：${bgProcess.pid}）`);
+          console.log(`   服务地址：http://${displayHost}:${port}`);
+          console.log(`\n💡 现在可以关闭此终端窗口。右键托盘图标可退出。\n`);
 
           // cleanup() kills server so bgProcess can claim the port fresh
           cleanup();
           process.exit(0);
         } else if (choice === "exit") {
           isShuttingDown = true;
-          console.log("\nExiting...");
+          console.log("\n正在退出 ...");
           cleanup();
           setTimeout(() => process.exit(0), 100);
         }
       }
     } catch (err) {
-      console.error("Error:", err.message);
+      console.error("错误：", err.message);
       cleanup();
       process.exit(1);
     }
@@ -776,7 +776,7 @@ function startServer(latestVersion) {
 
   function attachServerEvents() {
     server.on("error", (err) => {
-      console.error("Failed to start server:", err.message);
+      console.error("启动服务失败：", err.message);
       if (!isShuttingDown) tryRestart();
       else { cleanup(); process.exit(1); }
     });
@@ -796,7 +796,7 @@ function startServer(latestVersion) {
     if (aliveMs >= RESTART_RESET_MS) restartCount = 0;
 
     if (restartCount >= MAX_RESTARTS) {
-      console.error(`\n⚠️  Server crashed ${MAX_RESTARTS} times. Disabling MIT and restarting...`);
+      console.error(`\n⚠️  服务连续崩溃 ${MAX_RESTARTS} 次，已自动关闭 MIT 并重启 ...`);
       try {
         const dbPath = path.join(os.homedir(), process.platform === "win32" ? path.join("AppData", "Roaming", "9router", "db.json") : path.join(".9router", "db.json"));
         if (fs.existsSync(dbPath)) {
@@ -813,11 +813,11 @@ function startServer(latestVersion) {
 
     restartCount++;
     const delay = Math.min(1000 * restartCount, 10000);
-    console.error(`\n⚠️  Server exited (code=${code ?? "unknown"}). Restarting in ${delay / 1000}s... (${restartCount}/${MAX_RESTARTS})`);
+    console.error(`\n⚠️  服务退出（错误码 ${code ?? "未知"}）。${delay / 1000} 秒后自动重启 ...（${restartCount}/${MAX_RESTARTS}）`);
     if (crashLog.length) {
-      console.error("\n--- Server crash log ---");
+      console.error("\n--- 服务崩溃日志 ---");
       crashLog.forEach(l => console.error(l));
-      console.error("--- End crash log ---\n");
+      console.error("--- 日志结束 ---\n");
     }
 
     setTimeout(() => {
