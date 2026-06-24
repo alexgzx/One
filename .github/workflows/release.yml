@@ -120,6 +120,7 @@ jobs:
       - name: Pack CLI bundle (preserve dotfiles/dot-dirs)
         shell: bash
         run: |
+          set -euo pipefail
           # 直接 tar 打包，规避 actions/upload-artifact glob 对 .next-cli-build 等
           # 点开头目录的过滤问题
           tar -czf cli-bundle.tar.gz \
@@ -132,14 +133,22 @@ jobs:
             cli/app \
             cli/node_modules
           ls -lh cli-bundle.tar.gz
-          # 内容自检：确认关键文件在 tar 包里
-          tar -tzf cli-bundle.tar.gz | grep -E "(BUILD_ID|node-machine-id/package\.json|sql\.js/dist/sql-wasm\.wasm)" | head -20
-          # 显式校验 wasm 在内
-          if ! tar -tzf cli-bundle.tar.gz | grep -q "sql\.js/dist/sql-wasm\.wasm"; then
-            echo "❌ sql-wasm.wasm NOT IN ARCHIVE"
-            exit 1
-          fi
-          echo "✅ sql-wasm.wasm is packed"
+
+          # 列出 tar 全部内容到临时文件，避免 grep | head 触发的 SIGPIPE
+          tar -tzf cli-bundle.tar.gz > /tmp/tar-list.txt
+          echo "📦 tar 包内文件总数：$(wc -l < /tmp/tar-list.txt)"
+
+          # 内容自检：关键文件清单
+          echo "🔍 关键文件检查："
+          for pat in "BUILD_ID" "node-machine-id/package.json" "sql.js/dist/sql-wasm.wasm"; do
+            if grep -q "$pat" /tmp/tar-list.txt; then
+              echo "   ✅ $pat"
+            else
+              echo "   ❌ $pat NOT IN ARCHIVE"
+              exit 1
+            fi
+          done
+          echo "✅ 所有关键文件都已打包"
 
       - name: Upload CLI bundle
         uses: actions/upload-artifact@v4
