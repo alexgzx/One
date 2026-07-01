@@ -61,7 +61,7 @@
     "systemTray": {
       "iconPath": "../build/icon.png",
       "iconAsTemplate": true,
-      "tooltip": "One"
+      "title": "One"
     }
   }
 }
