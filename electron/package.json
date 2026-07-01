@@ -30,13 +30,9 @@
       "icon": "../build/icon.ico"
     },
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["arm64"]
-        }
-      ],
-      "icon": "../build/icon-512x512.png"
+      "target": "dmg",
+      "arch": ["arm64"],
+      "icon": "../build/icon.icns"
     },
     "dmg": {
       "title": "${productName}",
