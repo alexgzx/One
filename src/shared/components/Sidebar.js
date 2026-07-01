@@ -29,10 +29,30 @@ import {
   Languages,
   Settings,
   ChevronRight,
-  Zap,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+
+// ============================================================
+// 自定义品牌图标
+// ============================================================
+function OneIcon({ size = 15, className }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 1024 1024"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M487.904 6.528L88.128 238.208a48.32 48.32 0 0 0-24.032 41.952V743.68c0 17.248 9.184 33.28 24.064 41.888l399.776 231.904c14.944 8.672 33.28 8.672 48.224 0l399.616-231.808c14.944-8.736 24.064-24.672 24.096-41.888V280.16a48.64 48.64 0 0 0-24.16-41.984L536.192 6.496a47.936 47.936 0 0 0-48.224 0z"
+        fill="#339933"
+      />
+    </svg>
+  );
+}
 
 // 主导航图标映射
 const iconMap = {
@@ -285,8 +305,8 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
       <div className={cn("flex items-center pt-4 pb-3", collapsed ? "px-3 justify-center" : "px-3 justify-between")}>
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center size-7 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900">
-              <Zap size={15} strokeWidth={1.8} />
+            <div className="flex items-center justify-center size-7">
+              <OneIcon size={28} />
             </div>
             <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 tracking-tight">
               One
@@ -294,8 +314,8 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
           </div>
         )}
         {collapsed && (
-          <div className="flex items-center justify-center size-7 rounded-md bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900">
-            <Zap size={15} strokeWidth={1.8} />
+          <div className="flex items-center justify-center size-7">
+            <OneIcon size={28} />
           </div>
         )}
       </div>
@@ -355,8 +375,9 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
           </p>
         )}
 
-        {/* 媒体提供商 */}
+        {/* 媒体提供商 - 暂时隐藏，后期改造后启用
         <MediaProvidersGroup pathname={pathname} onClose={onClose} collapsed={collapsed} />
+        */}
 
         {/* 调试项 */}
         {debugItems.map((item) => {
