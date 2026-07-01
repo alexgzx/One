@@ -183,7 +183,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: icons
-          path: build/icon-*
+          path: |
+            build/icon-*
+            build/icon.png
+            build/icon.ico
           if-no-files-found: warn
           retention-days: 3
 
@@ -596,11 +599,9 @@ jobs:
           if (Test-Path cli/node_modules) { Copy-Item -Recurse cli/node_modules "src-tauri/resources/cli/node_modules" }
 
       - name: Build Tauri MSI
+        shell: pwsh
         run: |
-          cd src-tauri
-          npm install 2>/dev/null || true
-          cd ..
-          npm install -g @tauri-apps/cli
+          npm install -g @tauri-apps/cli 2>$null
           npm run tauri build -- --bundles msi
 
       - name: 🧪 Tauri Windows E2E smoke test
@@ -663,9 +664,6 @@ jobs:
       - name: Build Tauri DMG
         run: |
           npm install -g @tauri-apps/cli
-          cd src-tauri
-          npm install 2>/dev/null || true
-          cd ..
           npm run tauri build -- --bundles dmg
 
       - name: 🧪 Tauri macOS E2E smoke test
