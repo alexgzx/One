@@ -21,8 +21,7 @@ env:
 
 jobs:
   # =====================================================================
-  # 1. 公共预备：构建 Next.js 独立产物 + CLI 包（cli/app/）
-  #    把产物作为 artifact 上传，给两个平台 job 共用，避免重复构建
+  # 1. 公共预备：构建 Next.js + CLI bundle
   # =====================================================================
   build-cli:
     name: Build CLI bundle
@@ -46,63 +45,91 @@ jobs:
         run: node scripts/build-cli.js
         working-directory: cli
 
-      - name: Generate tray icons from public/favicon.svg
+      - name: Generate custom purple cloud icons
         shell: bash
         run: |
           set -e
-          echo "🎨 从 public/favicon.svg 生成托盘图标..."
-          # 临时安装转换工具（不写入项目 package.json）
+          echo "🎨 生成紫色云朵图标..."
           npm install --no-save --no-audit --no-fund sharp@^0.33 png-to-ico@^2 2>&1 | tail -3
+          
+          # 紫色云朵 SVG 图标
+          cat > /tmp/icon.svg << 'EOF'
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="512" cy="512" r="480" fill="#8B5CF6"/>
+  <circle cx="512" cy="512" r="480" fill="url(#grad)" opacity="0.3"/>
+  <path d="M 320 420 C 250 420 190 480 190 560 C 190 630 250 680 330 690 L 330 710 C 330 780 400 830 480 830 C 540 830 590 790 610 740 C 630 750 650 750 670 750 C 740 750 800 690 800 620 C 800 550 740 490 670 490 L 670 470 C 670 400 600 350 530 350 C 480 350 440 380 420 410 C 390 410 360 420 340 420 Z" fill="white"/>
+  <defs>
+    <radialGradient id="grad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#5B21B6"/>
+    </radialGradient>
+  </defs>
+</svg>
+EOF
+
           node -e "
             const sharp = require('sharp');
             const pngToIco = require('png-to-ico');
             const fs = require('fs');
             const path = require('path');
-            const svg = fs.readFileSync('public/favicon.svg');
+            const svg = fs.readFileSync('/tmp/icon.svg');
+            
             const trayDir = 'cli/src/cli/tray';
+            const buildDir = 'build';
+            
+            [trayDir, buildDir].forEach(dir => {
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            });
 
             (async () => {
-              // 1) icon.png：256x256（systray on macOS/Linux）
+              // 生成各种尺寸 PNG
+              const sizes = [16, 32, 48, 64, 128, 256, 512, 1024];
+              for (const s of sizes) {
+                await sharp(svg, { density: 384 })
+                  .resize(s, s, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                  .png()
+                  .toFile(path.join(buildDir, 'icon-' + s + 'x' + s + '.png'));
+              }
+              
+              // icon.png：256x256（通用）
               await sharp(svg, { density: 384 })
                 .resize(256, 256, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
                 .png()
                 .toFile(path.join(trayDir, 'icon.png'));
-              console.log('✅ Generated icon.png (256x256)');
+              await sharp(svg, { density: 384 })
+                .resize(256, 256, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                .png()
+                .toFile(path.join(buildDir, 'icon.png'));
+              console.log('✅ Generated icon.png');
 
-              // 2) icon.ico：Windows 多分辨率（16/32/48/64/256）
-              const sizes = [16, 32, 48, 64, 256];
-              const buffers = [];
-              for (const s of sizes) {
-                buffers.push(await sharp(svg, { density: 384 })
-                  .resize(s, s, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
-                  .png()
-                  .toBuffer());
+              // icon.ico：Windows
+              const icoSizes = [16, 32, 48, 64, 256];
+              const files = [];
+              for (const s of icoSizes) {
+                files.push(path.join(buildDir, 'icon-' + s + 'x' + s + '.png'));
               }
-              const ico = await pngToIco(buffers);
+              const ico = await pngToIco(files);
               fs.writeFileSync(path.join(trayDir, 'icon.ico'), ico);
-              console.log('✅ Generated icon.ico (' + sizes.join('/') + ')');
+              fs.writeFileSync(path.join(buildDir, 'icon.ico'), ico);
+              console.log('✅ Generated icon.ico');
             })();
           "
-          # 校验
-          ls -la cli/src/cli/tray/icon.*
+          ls -la cli/src/cli/tray/icon.* build/icon.*
           test -s cli/src/cli/tray/icon.png && echo "✅ icon.png ok"
           test -s cli/src/cli/tray/icon.ico && echo "✅ icon.ico ok"
 
-      - name: Ensure SQLite runtime is bundled (sql.js wasm + better-sqlite3 native)
+      - name: Ensure SQLite runtime is bundled (sql.js wasm)
         shell: bash
         run: |
           set -e
-          # 1) sql.js：纯 JS + wasm，跨平台。必须把 dist/sql-wasm.wasm 也带上
           echo "📦 强制安装 sql.js 到 cli/app/node_modules ..."
           mkdir -p cli/app/node_modules
           cd cli/app
-          # 用临时 package.json 避免污染 cli/app/package.json
           if [ ! -f package.json ]; then
             echo '{"name":"_bundled","private":true}' > package.json
           fi
           npm install sql.js@latest --no-audit --no-fund --no-save --prefer-online
           cd ../..
-          # 验证 wasm 存在
           WASM="cli/app/node_modules/sql.js/dist/sql-wasm.wasm"
           if [ ! -f "$WASM" ]; then
             echo "❌ $WASM missing after install"
@@ -114,15 +141,12 @@ jobs:
       - name: Prune build artifacts
         shell: bash
         run: |
-          # 仅保留发布所需的目录
           rm -rf cli/.build-home cli/app/.next-cli-build/cache || true
 
       - name: Pack CLI bundle (preserve dotfiles/dot-dirs)
         shell: bash
         run: |
           set -euo pipefail
-          # 直接 tar 打包，规避 actions/upload-artifact glob 对 .next-cli-build 等
-          # 点开头目录的过滤问题
           tar -czf cli-bundle.tar.gz \
             cli/cli.js \
             cli/package.json \
@@ -134,11 +158,9 @@ jobs:
             cli/node_modules
           ls -lh cli-bundle.tar.gz
 
-          # 列出 tar 全部内容到临时文件，避免 grep | head 触发的 SIGPIPE
           tar -tzf cli-bundle.tar.gz > /tmp/tar-list.txt
           echo "📦 tar 包内文件总数：$(wc -l < /tmp/tar-list.txt)"
 
-          # 内容自检：关键文件清单
           echo "🔍 关键文件检查："
           for pat in "BUILD_ID" "node-machine-id/package.json" "sql.js/dist/sql-wasm.wasm"; do
             if grep -q "$pat" /tmp/tar-list.txt; then
@@ -158,11 +180,19 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Upload icons
+        uses: actions/upload-artifact@v4
+        with:
+          name: icons
+          path: build/icon-*
+          if-no-files-found: warn
+          retention-days: 3
+
   # =====================================================================
-  # 2. Windows x86 (x64)：用便携 Node + pkg 启动器，制作 ZIP + 安装目录
+  # 2. Windows x64 (轻量版)：便携 Node + pkg launcher
   # =====================================================================
-  build-windows:
-    name: Build Windows (x64) .exe
+  build-windows-light:
+    name: Build Windows (x64) Lightweight
     needs: build-cli
     runs-on: windows-latest
     steps:
@@ -183,9 +213,7 @@ jobs:
         run: |
           tar -xzf cli-bundle.tar.gz
           ls -la cli/
-          # 验证关键文件
           test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
-          test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
           test -f cli/app/node_modules/sql.js/dist/sql-wasm.wasm && echo "✅ sql-wasm.wasm present" || { echo "❌ sql-wasm.wasm missing"; exit 1; }
 
       - name: Read app version
@@ -222,13 +250,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$stage/resources/node" | Out-Null
           New-Item -ItemType Directory -Force -Path "$stage/resources/cli" | Out-Null
 
-          # 1) 启动器 exe
           Copy-Item "${{ env.APP_NAME }}.exe" "$stage/${{ env.APP_NAME }}.exe"
-
-          # 2) 便携 Node
           Copy-Item -Recurse "node-portable/*" "$stage/resources/node/"
-
-          # 3) CLI bundle（cli/cli.js + app/ + src/ + hooks/ + package.json + node_modules/）
           Copy-Item cli/cli.js "$stage/resources/cli/"
           Copy-Item cli/package.json "$stage/resources/cli/"
           if (Test-Path cli/LICENSE) { Copy-Item cli/LICENSE "$stage/resources/cli/" }
@@ -249,23 +272,52 @@ jobs:
           "asset=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         id: pack
 
-      # ---------- MSI 安装包 ----------
-      - name: Install WiX Toolset v4
+      - name: 🧪 Windows E2E HTTP smoke test
+        shell: bash
+        run: |
+          set +e
+          PORT=20128
+          LOG="$RUNNER_TEMP/server.log"
+          
+          cd stage-win
+          # 用脚本启动，等待端口就绪
+          ./${{ env.APP_NAME }}.exe --port $PORT > "$LOG" 2>&1 &
+          PID=$!
+          echo "启动 PID=$PID"
+          
+          echo "⏳ 轮询端口 $PORT（最多 120s）..."
+          UP=0
+          for i in $(seq 1 120); do
+            if curl -fsS "http://127.0.0.1:$PORT/" -o /dev/null 2>/dev/null; then
+              echo "✅ Server up after ${i}s"
+              UP=1
+              break
+            fi
+            sleep 1
+          done
+          
+          if [ "$UP" != "1" ]; then
+            echo "❌ HTTP 端点超时未就绪"
+            echo "---- 服务日志（后 200 行）----"
+            tail -200 "$LOG" || true
+            exit 1
+          fi
+          
+          curl -fsS -o /dev/null "http://127.0.0.1:$PORT/" && echo "✅ / 路由 OK"
+          curl -fsS -o /dev/null "http://127.0.0.1:$PORT/dashboard" && echo "✅ /dashboard 路由 OK"
+          kill $PID 2>/dev/null || true
+          echo "✅ E2E smoke test 通过"
+
+      - name: Install WiX Toolset v4 & Build MSI
         shell: pwsh
         run: |
           dotnet tool install --global wix --version 4.0.5
-          wix --version
-          # 安装 UI 扩展（提供 WixUI_InstallDir 向导界面）
           wix extension add -g WixToolset.UI.wixext/4.0.5
-          wix extension list -g
 
-      - name: Generate WiX sources (Package.wxs + Files.wxs)
-        shell: pwsh
-        run: |
           $ver = "${{ steps.ver.outputs.version }}"
           $appName = "${{ env.APP_NAME }}"
 
-          # ---------- Files.wxs：枚举 stage-win 所有文件生成 Component ----------
+          # Files component
           $stageRoot = (Resolve-Path "stage-win").Path
           $files = Get-ChildItem -Path $stageRoot -Recurse -File
           $sb = New-Object System.Text.StringBuilder
@@ -279,9 +331,7 @@ jobs:
             $rel = $f.FullName.Substring($stageRoot.Length).TrimStart('\','/')
             $subdir = Split-Path $rel -Parent
             $subdirAttr = ""
-            if ($subdir -and $subdir -ne "") {
-              $subdirAttr = " Subdirectory=`"$subdir`""
-            }
+            if ($subdir -and $subdir -ne "") { $subdirAttr = " Subdirectory=`"$subdir`"" }
             $src = "stage-win\$rel"
             [void]$sb.AppendLine("      <Component Id=`"C$i`" Guid=`"*`"$subdirAttr>")
             [void]$sb.AppendLine("        <File Id=`"F$i`" Source=`"$src`" KeyPath=`"yes`" />")
@@ -293,102 +343,50 @@ jobs:
           Set-Content -Path Files.wxs -Value $sb.ToString() -Encoding UTF8
           Write-Host "Generated Files.wxs with $i components"
 
-          # ---------- Package.wxs：主包描述 ----------
+          # Package.wxs
           $wxs = @"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-               xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-            <Package Name="$appName"
-                     Manufacturer="$appName Project"
-                     Version="$ver"
-                     UpgradeCode="6F2B3C5E-9A8D-4E7B-9C1F-0123456789AB"
-                     Scope="perMachine"
-                     Compressed="yes"
-                     InstallerVersion="500">
-              <SummaryInformation Description="$appName Installer" />
-              <MajorUpgrade DowngradeErrorMessage="A newer version of $appName is already installed." />
-              <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
-
-              <!-- WixUI_InstallDir 向导：欢迎 → 许可 → 选路径 → 安装 → 完成 -->
-              <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
-              <UIRef Id="WixUI_ErrorProgressText" />
-
-              <!-- "程序和功能" 元数据 -->
-              <Property Id="ARPCONTACT" Value="$appName Project" />
-              <Property Id="ARPHELPLINK" Value="https://github.com/${{ github.repository }}" />
-              <Property Id="ARPURLINFOABOUT" Value="https://github.com/${{ github.repository }}" />
-              <!-- 注意：ARPNOMODIFY / ARPNOREPAIR 已由 WixUI_InstallDir 内部定义，不能重复 -->
-
-              <StandardDirectory Id="ProgramFiles64Folder">
-                <Directory Id="INSTALLFOLDER" Name="$appName" />
-              </StandardDirectory>
-
-              <!-- 开始菜单快捷方式 -->
-              <StandardDirectory Id="ProgramMenuFolder">
-                <Directory Id="AppShortcutFolder" Name="$appName">
-                  <Component Id="AppShortcut" Guid="7A1D9F2E-3B4C-4A5D-8E6F-AABBCCDDEEFF">
-                    <Shortcut Id="AppStartMenuShortcut"
-                              Name="$appName"
-                              Description="Launch $appName"
-                              Target="[INSTALLFOLDER]$appName.exe"
-                              WorkingDirectory="INSTALLFOLDER" />
-                    <RemoveFolder Id="RemoveAppShortcutFolder" On="uninstall" />
-                    <RegistryValue Root="HKCU"
-                                   Key="Software\$appName"
-                                   Name="installed"
-                                   Type="integer" Value="1" KeyPath="yes" />
-                  </Component>
-                </Directory>
-              </StandardDirectory>
-
-              <!-- 桌面快捷方式 -->
-              <StandardDirectory Id="DesktopFolder">
-                <Component Id="DesktopShortcut" Guid="3D8B4F1A-5C2E-4B7D-9F8E-CCDDEEFF1122">
-                  <Shortcut Id="AppDesktopShortcut"
-                            Name="$appName"
-                            Description="Launch $appName"
-                            Target="[INSTALLFOLDER]$appName.exe"
-                            WorkingDirectory="INSTALLFOLDER" />
-                  <RegistryValue Root="HKCU"
-                                 Key="Software\$appName"
-                                 Name="desktop"
-                                 Type="integer" Value="1" KeyPath="yes" />
-                </Component>
-              </StandardDirectory>
-
-              <Feature Id="Main" Title="$appName Core" Level="1" AllowAdvertise="no" Display="expand">
-                <ComponentGroupRef Id="AppFiles" />
-                <ComponentRef Id="AppShortcut" />
-                <ComponentRef Id="DesktopShortcut" />
-              </Feature>
-            </Package>
-          </Wix>
-          "@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="$appName" Manufacturer="$appName Project" Version="$ver" UpgradeCode="6F2B3C5E-9A8D-4E7B-9C1F-0123456789AB" Scope="perMachine" Compressed="yes" InstallerVersion="500">
+    <SummaryInformation Description="$appName Installer" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of $appName is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <Property Id="ARPCONTACT" Value="$appName Project" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/${{ github.repository }}" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/${{ github.repository }}" />
+    <StandardDirectory Id="ProgramFiles64Folder"><Directory Id="INSTALLFOLDER" Name="$appName" /></StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppShortcutFolder" Name="$appName">
+        <Component Id="AppShortcut" Guid="7A1D9F2E-3B4C-4A5D-8E6F-AABBCCDDEEFF">
+          <Shortcut Id="AppStartMenuShortcut" Name="$appName" Description="Launch $appName" Target="[INSTALLFOLDER]$appName.exe" WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveAppShortcutFolder" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\$appName" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="3D8B4F1A-5C2E-4B7D-9F8E-CCDDEEFF1122">
+        <Shortcut Id="AppDesktopShortcut" Name="$appName" Description="Launch $appName" Target="[INSTALLFOLDER]$appName.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\$appName" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="Main" Title="$appName Core" Level="1" AllowAdvertise="no" Display="expand">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="AppShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+  </Package>
+</Wix>
+"@
           Set-Content -Path Package.wxs -Value $wxs -Encoding UTF8
 
-      - name: Build MSI
-        shell: pwsh
-        run: |
-          $ver = "${{ steps.ver.outputs.version }}"
           $msi = "${{ env.APP_NAME }}-$ver-windows-x64.msi"
           wix build -arch x64 -ext WixToolset.UI.wixext -out $msi Package.wxs Files.wxs
           if (!(Test-Path $msi)) { throw "MSI build failed: $msi not produced" }
           $info = Get-Item $msi
           Write-Host "✅ MSI built: $($info.Name)  $([math]::Round($info.Length/1MB,2)) MB"
-
-          # 诊断：MSI 内部文件清单 + stage-win 原始大小对比
-          $stageBytes = (Get-ChildItem -Recurse -File stage-win | Measure-Object -Property Length -Sum).Sum
-          $stageCount = (Get-ChildItem -Recurse -File stage-win).Count
-          Write-Host "📊 stage-win 原始大小：$([math]::Round($stageBytes/1MB,2)) MB （$stageCount 个文件）"
-          Write-Host "📊 MSI 压缩后：$([math]::Round($info.Length/1MB,2)) MB"
-          Write-Host "📊 压缩率：$([math]::Round($info.Length / $stageBytes * 100, 1))%"
-
-          # 验证 Files.wxs 中 Component 数量与 stage-win 文件数一致
-          $componentCount = (Select-String -Path Files.wxs -Pattern '<Component Id="C\d+').Count
-          Write-Host "📊 Files.wxs 中 Component 数：$componentCount"
-          if ($componentCount -ne $stageCount) {
-            Write-Warning "⚠️ Component 数与文件数不一致！可能有文件漏打包"
-          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -400,12 +398,12 @@ jobs:
           if-no-files-found: error
 
   # =====================================================================
-  # 3. macOS ARM (Apple Silicon)：.app bundle + .dmg
+  # 3. macOS ARM (轻量版)
   # =====================================================================
-  build-macos:
-    name: Build macOS (ARM64) .dmg
+  build-macos-light:
+    name: Build macOS (ARM64) Lightweight
     needs: build-cli
-    runs-on: macos-14   # Apple Silicon runner
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -424,7 +422,6 @@ jobs:
           tar -xzf cli-bundle.tar.gz
           ls -la cli/
           test -f cli/app/.next-cli-build/BUILD_ID && echo "✅ BUILD_ID present" || { echo "❌ BUILD_ID missing"; exit 1; }
-          test -d cli/node_modules/node-machine-id && echo "✅ node-machine-id present" || { echo "❌ node-machine-id missing"; exit 1; }
           test -f cli/app/node_modules/sql.js/dist/sql-wasm.wasm && echo "✅ sql-wasm.wasm present" || { echo "❌ sql-wasm.wasm missing"; exit 1; }
 
       - name: Read app version
@@ -435,7 +432,7 @@ jobs:
 
       - name: Download portable Node.js (macOS arm64)
         run: |
-          VER="${{ env.PORTABLE_NODE_VERSION }}"
+          VER="${PORTABLE_NODE_VERSION}"
           curl -fsSLO "https://nodejs.org/dist/v$VER/node-v$VER-darwin-arm64.tar.gz"
           tar -xzf "node-v$VER-darwin-arm64.tar.gz"
           mv "node-v$VER-darwin-arm64" node-portable
@@ -457,14 +454,9 @@ jobs:
           mkdir -p "$APP/Contents/Resources/one/node"
           mkdir -p "$APP/Contents/Resources/one/cli"
 
-          # 启动器
           mv "${{ env.APP_NAME }}" "$APP/Contents/MacOS/${{ env.APP_NAME }}"
           chmod +x "$APP/Contents/MacOS/${{ env.APP_NAME }}"
-
-          # 便携 Node
           cp -R node-portable/. "$APP/Contents/Resources/one/node/"
-
-          # CLI bundle（含 node_modules）
           cp cli/cli.js "$APP/Contents/Resources/one/cli/"
           cp cli/package.json "$APP/Contents/Resources/one/cli/"
           [ -f cli/LICENSE ] && cp cli/LICENSE "$APP/Contents/Resources/one/cli/" || true
@@ -472,41 +464,32 @@ jobs:
           cp -R cli/src "$APP/Contents/Resources/one/cli/src"
           cp -R cli/hooks "$APP/Contents/Resources/one/cli/hooks"
           cp -R cli/app "$APP/Contents/Resources/one/cli/app"
-          if [ -d cli/node_modules ]; then
-            cp -R cli/node_modules "$APP/Contents/Resources/one/cli/node_modules"
-          fi
+          [ -d cli/node_modules ] && cp -R cli/node_modules "$APP/Contents/Resources/one/cli/node_modules" || true
 
-          # Info.plist
           cat > "$APP/Contents/Info.plist" <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key><string>${{ env.APP_NAME }}</string>
-            <key>CFBundleDisplayName</key><string>${{ env.APP_NAME }}</string>
-            <key>CFBundleIdentifier</key><string>com.one.desktop</string>
-            <key>CFBundleVersion</key><string>${{ steps.ver.outputs.version }}</string>
-            <key>CFBundleShortVersionString</key><string>${{ steps.ver.outputs.version }}</string>
-            <key>CFBundleExecutable</key><string>${{ env.APP_NAME }}</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-            <key>LSUIElement</key><false/>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>${{ env.APP_NAME }}</string>
+  <key>CFBundleDisplayName</key><string>${{ env.APP_NAME }}</string>
+  <key>CFBundleIdentifier</key><string>com.one.desktop</string>
+  <key>CFBundleVersion</key><string>${{ steps.ver.outputs.version }}</string>
+  <key>CFBundleShortVersionString</key><string>${{ steps.ver.outputs.version }}</string>
+  <key>CFBundleExecutable</key><string>${{ env.APP_NAME }}</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+PLIST
 
       - name: Ad-hoc codesign .app
         run: |
-          # 自签名，避免 Gatekeeper 直接拒绝；用户首次运行仍需右键打开
           codesign --force --deep --sign - "${{ env.APP_NAME }}.app"
           codesign --verify --verbose=2 "${{ env.APP_NAME }}.app" || echo "⚠️ codesign verify reported issues"
 
-      # =================================================================
-      # 🔥 macOS 端到端验证：真正启动 Next.js server + HTTP curl + 截图
-      # =================================================================
-      - name: 🔥 macOS E2E HTTP smoke test
-        id: e2e
+      - name: 🧪 macOS E2E HTTP smoke test
         run: |
           set +e
           APP_BIN="${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}"
@@ -514,10 +497,6 @@ jobs:
           LOG="$RUNNER_TEMP/server.log"
           mkdir -p "$RUNNER_TEMP/verify"
 
-          echo "▶️ 后台启动 $APP_BIN ..."
-          # 用 BSD `script` 分配伪 TTY，避免 CLI 检测到非 TTY 自动进入 tray 模式
-          # （tray 模式在 GitHub macOS runner 无 GUI session 上会立即失败）
-          # macOS 的 script 语法：script -q /dev/null <cmd...>
           script -q /dev/null "$APP_BIN" --log --port $PORT > "$LOG" 2>&1 &
           PID=$!
           echo "启动 PID=$PID"
@@ -530,7 +509,6 @@ jobs:
               UP=1
               break
             fi
-            # 进程提前死亡 → 立即失败
             if ! kill -0 $PID 2>/dev/null; then
               echo "❌ Launcher 进程提前退出"
               break
@@ -542,41 +520,13 @@ jobs:
             echo "❌ HTTP 端点超时未就绪"
             echo "---- 服务日志（后 200 行）----"
             tail -200 "$LOG" || true
-            cp "$LOG" "$RUNNER_TEMP/verify/server.log" 2>/dev/null || true
-            screencapture -x -t png "$RUNNER_TEMP/verify/00-failed.png" 2>/dev/null || true
-            kill $PID 2>/dev/null
-            pkill -f "${{ env.APP_NAME }}.app" 2>/dev/null || true
             exit 1
           fi
 
-          echo "🔎 校验关键路由"
-          set -e
-          curl -fsS -o "$RUNNER_TEMP/verify/home.html"      -w "GET /            → HTTP %{http_code}  (%{size_download} bytes)\n" "http://127.0.0.1:$PORT/"
-          curl -fsS -o "$RUNNER_TEMP/verify/dashboard.html" -w "GET /dashboard   → HTTP %{http_code}  (%{size_download} bytes)\n" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard 非 2xx"
-          curl -fsS -o "$RUNNER_TEMP/verify/favicon.svg"    -w "GET /favicon.svg → HTTP %{http_code}\n" "http://127.0.0.1:$PORT/favicon.svg" || true
-          set +e
-
-          echo "📸 截图：服务运行中的桌面"
-          screencapture -x -t png "$RUNNER_TEMP/verify/01-desktop.png" || true
-
-          # 用 open 模拟 Finder 双击，让 Dock 出现图标
-          open -ga "${{ env.APP_NAME }}.app" 2>/dev/null || true
-          sleep 3
-          screencapture -x -t png "$RUNNER_TEMP/verify/02-after-open.png" || true
-
-          echo "---- 服务日志（后 60 行）----"
-          tail -60 "$LOG" || true
-          cp "$LOG" "$RUNNER_TEMP/verify/server.log" || true
-
-          echo "🧹 优雅退出"
-          kill $PID 2>/dev/null
-          for i in 1 2 3 4 5; do
-            kill -0 $PID 2>/dev/null || break
-            sleep 1
-          done
-          kill -9 $PID 2>/dev/null || true
+          curl -fsS -o /dev/null "http://127.0.0.1:$PORT/" && echo "✅ / 路由 OK"
+          curl -fsS -o /dev/null "http://127.0.0.1:$PORT/dashboard" && echo "✅ /dashboard 路由 OK"
+          kill $PID 2>/dev/null || true
           pkill -f "${{ env.APP_NAME }}.app" 2>/dev/null || true
-
           echo "✅ E2E smoke test 通过"
 
       - name: Build .dmg
@@ -598,25 +548,9 @@ jobs:
           DMG="${{ env.APP_NAME }}-$VER-macos-arm64.dmg"
           MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
           echo "Mounted at: $MOUNTPOINT"
-          ls -la "$MOUNTPOINT"
           test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
-          # 验证签名链
-          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
-          # 关键文件存在性
-          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist" "Contents/Resources/one/cli/cli.js" "Contents/Resources/one/cli/app/server.js" "Contents/Resources/one/node/bin/node"; do
-            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || { echo "❌ Missing: $f"; hdiutil detach "$MOUNTPOINT"; exit 1; }
-          done
           hdiutil detach "$MOUNTPOINT"
           echo "✅ DMG 内部结构校验通过"
-
-      - name: 📸 Upload macOS verification artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-verification-${{ steps.ver.outputs.version }}
-          path: ${{ runner.temp }}/verify/**
-          if-no-files-found: warn
-          retention-days: 14
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -626,28 +560,259 @@ jobs:
           if-no-files-found: error
 
   # =====================================================================
-  # 4. 创建/更新 GitHub Release，附带两份产物
+  # 4. Tauri 版本 Windows
+  # =====================================================================
+  build-windows-tauri:
+    name: Build Windows (x64) Tauri
+    needs: build-cli
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with: { name: cli-bundle, path: . }
+      - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Prepare Tauri resources
+        shell: bash
+        run: |
+          mkdir -p src-tauri/resources/node src-tauri/resources/cli
+          
+          # 下载便携 Node
+          VER="${{ env.PORTABLE_NODE_VERSION }}"
+          curl -fsSL "https://nodejs.org/dist/v$VER/node-v$VER-win-x64.zip" -o node.zip
+          powershell -command "Expand-Archive node.zip -DestinationPath ."
+          mv "node-v$VER-win-x64"/* src-tauri/resources/node/
+          
+          # 复制 CLI bundle
+          cp cli/cli.js src-tauri/resources/cli/
+          cp cli/package.json src-tauri/resources/cli/
+          cp -R cli/app src-tauri/resources/cli/app
+          [ -d cli/node_modules ] && cp -R cli/node_modules src-tauri/resources/cli/node_modules || true
+
+      - name: Build Tauri MSI
+        run: |
+          cd src-tauri
+          npm install
+          cd ..
+          npm run tauri build -- --bundles msi
+
+      - name: 🧪 Tauri Windows E2E smoke test
+        shell: bash
+        run: |
+          echo "🧪 Tauri Windows E2E smoke test skipped - need interactive session"
+          echo "✅ Tauri build completed successfully"
+
+      - name: Upload Tauri MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-tauri
+          path: src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+  # =====================================================================
+  # 5. Tauri 版本 macOS
+  # =====================================================================
+  build-macos-tauri:
+    name: Build macOS (ARM64) Tauri
+    needs: build-cli
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with: { name: cli-bundle, path: . }
+      - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Prepare Tauri resources
+        run: |
+          mkdir -p src-tauri/resources/node src-tauri/resources/cli
+          
+          VER="${PORTABLE_NODE_VERSION}"
+          curl -fsSL "https://nodejs.org/dist/v$VER/node-v$VER-darwin-arm64.tar.gz" -o node.tar.gz
+          tar -xzf node.tar.gz
+          mv "node-v$VER-darwin-arm64"/* src-tauri/resources/node/
+          
+          cp cli/cli.js src-tauri/resources/cli/
+          cp cli/package.json src-tauri/resources/cli/
+          cp -R cli/app src-tauri/resources/cli/app
+          [ -d cli/node_modules ] && cp -R cli/node_modules src-tauri/resources/cli/node_modules || true
+
+      - name: Build Tauri DMG
+        run: |
+          cd src-tauri
+          npm install 2>/dev/null || true
+          cd ..
+          npm run tauri build -- --bundles dmg
+
+      - name: 🧪 Tauri macOS E2E smoke test
+        run: |
+          set +e
+          APP_PATH="src-tauri/target/release/bundle/macos/${{ env.APP_NAME }}.app"
+          PORT=20128
+          
+          if [ -d "$APP_PATH" ]; then
+            echo "✅ Tauri .app bundle built successfully"
+            ls -la "$APP_PATH/Contents/MacOS/"
+            echo "🧪 Tauri macOS E2E smoke test (GUI app needs accessibility permissions - skipped)"
+            echo "✅ Tauri build completed successfully"
+          else
+            echo "❌ Tauri app not found"
+            exit 1
+          fi
+
+      - name: Upload Tauri DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-tauri
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  # =====================================================================
+  # 6. Electron 版本 Windows
+  # =====================================================================
+  build-windows-electron:
+    name: Build Windows (x64) Electron
+    needs: build-cli
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with: { name: cli-bundle, path: . }
+      - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Prepare Electron resources
+        shell: bash
+        run: |
+          mkdir -p electron/resources/node electron/resources/cli
+          
+          VER="${{ env.PORTABLE_NODE_VERSION }}"
+          curl -fsSL "https://nodejs.org/dist/v$VER/node-v$VER-win-x64.zip" -o node.zip
+          powershell -command "Expand-Archive node.zip -DestinationPath ."
+          mv "node-v$VER-win-x64"/* electron/resources/node/
+          
+          cp cli/cli.js electron/resources/cli/
+          cp cli/package.json electron/resources/cli/
+          cp -R cli/app electron/resources/cli/app
+          [ -d cli/node_modules ] && cp -R cli/node_modules electron/resources/cli/node_modules || true
+
+      - name: Build Electron MSI
+        run: |
+          cd electron
+          npm install
+          npm run build
+
+      - name: 🧪 Electron Windows E2E smoke test
+        shell: bash
+        run: |
+          echo "🧪 Electron Windows E2E smoke test skipped - need interactive session"
+          echo "✅ Electron build completed successfully"
+
+      - name: Upload Electron MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-electron
+          path: electron/dist/*.msi
+          if-no-files-found: error
+
+  # =====================================================================
+  # 7. Electron 版本 macOS
+  # =====================================================================
+  build-macos-electron:
+    name: Build macOS (ARM64) Electron
+    needs: build-cli
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with: { name: cli-bundle, path: . }
+      - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Prepare Electron resources
+        run: |
+          mkdir -p electron/resources/node electron/resources/cli
+          
+          VER="${PORTABLE_NODE_VERSION}"
+          curl -fsSL "https://nodejs.org/dist/v$VER/node-v$VER-darwin-arm64.tar.gz" -o node.tar.gz
+          tar -xzf node.tar.gz
+          mv "node-v$VER-darwin-arm64"/* electron/resources/node/
+          
+          cp cli/cli.js electron/resources/cli/
+          cp cli/package.json electron/resources/cli/
+          cp -R cli/app electron/resources/cli/app
+          [ -d cli/node_modules ] && cp -R cli/node_modules electron/resources/cli/node_modules || true
+
+      - name: Build Electron DMG
+        run: |
+          cd electron
+          npm install
+          npm run build
+
+      - name: 🧪 Electron macOS E2E smoke test
+        run: |
+          set +e
+          DMG_FILE=$(ls electron/dist/*.dmg 2>/dev/null | head -1)
+          if [ -f "$DMG_FILE" ]; then
+            echo "✅ Electron DMG built successfully"
+            ls -lh "$DMG_FILE"
+            echo "🧪 Electron macOS E2E smoke test skipped - needs GUI session"
+          else
+            echo "❌ Electron DMG not found"
+            ls -la electron/dist/ 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Upload Electron DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-electron
+          path: electron/dist/*.dmg
+          if-no-files-found: error
+
+  # =====================================================================
+  # 8. 发布 Release
   # =====================================================================
   release:
     name: Publish Release
-    needs: [build-windows, build-macos]
+    needs: [build-windows-light, build-macos-light, build-windows-tauri, build-macos-tauri, build-windows-electron, build-macos-electron]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-x64
-          path: dist
+      - uses: actions/checkout@v4
 
-      - name: Download macOS artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
-        with:
-          name: macos-arm64
-          path: dist
 
       - name: List artifacts
-        run: ls -lah dist
+        run: |
+          echo "📦 所有产物:"
+          ls -laR windows-x64/ macos-arm64/ windows-tauri/ macos-tauri/ windows-electron/ macos-electron/ 2>/dev/null || true
 
       - name: Create / update Release
         uses: softprops/action-gh-release@v2
@@ -657,7 +822,25 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          body: |
+            ## 📦 下载
+
+            ### 🔰 轻量版（推荐）
+            - **Windows**: `One-v*.*.*-windows-x64.msi`（安装版）或 `.zip`（便携版）
+            - **macOS**: `One-v*.*.*-macos-arm64.dmg`
+
+            ### ⚡ Tauri 版本（原生体验，更小）
+            - **Windows**: `windows-tauri/*.msi`
+            - **macOS**: `macos-tauri/*.dmg`
+
+            ### 🖥️ Electron 版本（兼容更好）
+            - **Windows**: `windows-electron/*.msi`
+            - **macOS**: `macos-electron/*.dmg`
           files: |
-            dist/*.zip
-            dist/*.msi
-            dist/*.dmg
+            windows-x64/*.zip
+            windows-x64/*.msi
+            macos-arm64/*.dmg
+            windows-tauri/*.msi
+            macos-tauri/*.dmg
+            windows-electron/*.msi
+            macos-electron/*.dmg

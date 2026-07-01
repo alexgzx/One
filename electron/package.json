@@ -1,0 +1,53 @@
+{
+  "name": "one-electron",
+  "version": "0.5.4",
+  "description": "One Desktop - Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.one.desktop",
+    "productName": "One (Electron)",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "msi",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "../build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "arch": ["arm64"],
+      "icon": "../build/icon.icns"
+    },
+    "dmg": {
+      "title": "${productName}",
+      "contents": [
+        {
+          "x": 110,
+          "y": 150
+        },
+        {
+          "x": 240,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}
