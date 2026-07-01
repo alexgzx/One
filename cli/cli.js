@@ -531,10 +531,6 @@ async function showInterfaceMenu(latestVersion) {
 
   const menuItems = [];
 
-  if (latestVersion) {
-    menuItems.push({ label: `升级到 v${latestVersion}（当前 v${pkg.version}）`, icon: "⬆" });
-  }
-
   menuItems.push(
     { label: "网页控制台（浏览器打开）", icon: "🌐" },
     { label: "终端控制台（交互式 CLI）", icon: "💻" },
@@ -544,12 +540,9 @@ async function showInterfaceMenu(latestVersion) {
 
   const selected = await selectMenu(`选择运行模式（v${pkg.version}）`, menuItems, 0, subtitle);
 
-  const offset = latestVersion ? 1 : 0;
-
-  if (latestVersion && selected === 0) return "update";
-  if (selected === offset) return "web";
-  if (selected === offset + 1) return "terminal";
-  if (selected === offset + 2) return "hide";
+  if (selected === 0) return "web";
+  if (selected === 1) return "terminal";
+  if (selected === 2) return "hide";
   return "exit";
 }
 
@@ -695,19 +688,7 @@ function startServer(latestVersion) {
       while (true) {
         const choice = await showInterfaceMenu(latestVersion);
 
-        if (choice === "update") {
-          isShuttingDown = true;
-          const { clearScreen } = require("./src/cli/utils/display");
-          clearScreen();
-          console.log(`\n⬆  发现新版本 v${pkg.version} → v${latestVersion}\n`);
-          console.log(`退出后请运行以下命令更新：\n`);
-          console.log(`   \x1b[33m${INSTALL_CMD_LATEST}\x1b[0m\n`);
-          cleanup();
-          await killAllAppProcesses(port);
-          await killProcessOnPort(port);
-          setTimeout(() => process.exit(0), 200);
-          return;
-        } else if (choice === "web") {
+        if (choice === "web") {
           openBrowser(url);
           // Wait for user to come back
           const { pause } = require("./src/cli/utils/input");
