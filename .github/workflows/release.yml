@@ -52,25 +52,21 @@ jobs:
           echo "🎨 生成紫色云朵图标..."
           npm install --no-save --no-audit --no-fund sharp@^0.33 png-to-ico@^2 2>&1 | tail -3
           
-          # 用 Node.js 直接生成 SVG（避免 YAML heredoc 语法问题）
-          node -e "
-            const fs = require('fs');
-            const svg = \`<svg width=\"1024\" height=\"1024\" viewBox=\"0 0 1024 1024\" xmlns=\"http://www.w3.org/2000/svg\">
-              <circle cx=\"512\" cy=\"512\" r=\"480\" fill=\"#8B5CF6\"/>
-              <circle cx=\"512\" cy=\"512\" r=\"480\" fill=\"url(#grad)\" opacity=\"0.3\"/>
-              <path d=\"M 320 420 C 250 420 190 480 190 560 C 190 630 250 680 330 690 L 330 710 C 330 780 400 830 480 830 C 540 830 590 790 610 740 C 630 750 650 750 670 750 C 740 750 800 690 800 620 C 800 550 740 490 670 490 L 670 470 C 670 400 600 350 530 350 C 480 350 440 380 420 410 C 390 410 360 420 340 420 Z\" fill=\"white\"/>
-              <defs>
-                <radialGradient id=\"grad\" cx=\"50%\" cy=\"30%\" r=\"70%\">
-                  <stop offset=\"0%\" stop-color=\"#A78BFA\"/>
-                  <stop offset=\"100%\" stop-color=\"#5B21B6\"/>
-                </radialGradient>
-              </defs>
-            </svg>\`;
-            fs.writeFileSync('/tmp/icon.svg', svg);
-            console.log('✅ SVG saved');
-          "
+          # 紫色云朵 SVG 图标
+          cat > /tmp/icon.svg << 'EOF'
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="512" cy="512" r="480" fill="#8B5CF6"/>
+  <circle cx="512" cy="512" r="480" fill="url(#grad)" opacity="0.3"/>
+  <path d="M 320 420 C 250 420 190 480 190 560 C 190 630 250 680 330 690 L 330 710 C 330 780 400 830 480 830 C 540 830 590 790 610 740 C 630 750 650 750 670 750 C 740 750 800 690 800 620 C 800 550 740 490 670 490 L 670 470 C 670 400 600 350 530 350 C 480 350 440 380 420 410 C 390 410 360 420 340 420 Z" fill="white"/>
+  <defs>
+    <radialGradient id="grad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#5B21B6"/>
+    </radialGradient>
+  </defs>
+</svg>
+EOF
 
-          # 生成各种尺寸图标
           node -e "
             const sharp = require('sharp');
             const pngToIco = require('png-to-ico');
@@ -86,6 +82,7 @@ jobs:
             });
 
             (async () => {
+              // 生成各种尺寸 PNG
               const sizes = [16, 32, 48, 64, 128, 256, 512, 1024];
               for (const s of sizes) {
                 await sharp(svg, { density: 384 })
@@ -94,6 +91,7 @@ jobs:
                   .toFile(path.join(buildDir, 'icon-' + s + 'x' + s + '.png'));
               }
               
+              // icon.png：256x256（通用）
               await sharp(svg, { density: 384 })
                 .resize(256, 256, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
                 .png()
@@ -104,6 +102,7 @@ jobs:
                 .toFile(path.join(buildDir, 'icon.png'));
               console.log('✅ Generated icon.png');
 
+              // icon.ico：Windows
               const icoSizes = [16, 32, 48, 64, 256];
               const files = [];
               for (const s of icoSizes) {
