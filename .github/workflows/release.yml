@@ -601,7 +601,7 @@ jobs:
       - name: Build Tauri MSI
         shell: pwsh
         run: |
-          npm install -g @tauri-apps/cli@^1.5 2>$null
+          npm install -g @tauri-apps/cli 2>$null
           npm run tauri build -- --bundles msi
 
       - name: 🧪 Tauri Windows E2E smoke test
@@ -663,7 +663,7 @@ jobs:
 
       - name: Build Tauri DMG
         run: |
-          npm install -g @tauri-apps/cli@^1.5
+          npm install -g @tauri-apps/cli
           npm run tauri build -- --bundles dmg
 
       - name: 🧪 Tauri macOS E2E smoke test
