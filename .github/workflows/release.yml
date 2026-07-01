@@ -570,6 +570,11 @@ jobs:
         with: { name: cli-bundle, path: . }
       - run: tar -xzf cli-bundle.tar.gz
 
+      - name: Download icons
+        uses: actions/download-artifact@v4
+        with: { name: icons, path: build }
+        continue-on-error: true
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -632,6 +637,11 @@ jobs:
         uses: actions/download-artifact@v4
         with: { name: cli-bundle, path: . }
       - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Download icons
+        uses: actions/download-artifact@v4
+        with: { name: icons, path: build }
+        continue-on-error: true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -700,20 +710,28 @@ jobs:
         with: { name: cli-bundle, path: . }
       - run: tar -xzf cli-bundle.tar.gz
 
+      - name: Download icons
+        uses: actions/download-artifact@v4
+        with: { name: icons, path: build }
+        continue-on-error: true
+
       - name: Prepare Electron resources
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p electron/resources/node electron/resources/cli
+          New-Item -ItemType Directory -Force -Path electron/resources/node, electron/resources/cli | Out-Null
 
-          VER="${{ env.PORTABLE_NODE_VERSION }}"
-          curl -fsSL "https://nodejs.org/dist/v$VER/node-v$VER-win-x64.zip" -o node.zip
-          powershell -command "Expand-Archive node.zip -DestinationPath ."
-          mv "node-v$VER-win-x64"/* electron/resources/node/
+          $ver = "${{ env.PORTABLE_NODE_VERSION }}"
+          $url = "https://nodejs.org/dist/v$ver/node-v$ver-win-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath .
+          Copy-Item -Recurse "node-v$ver-win-x64/*" electron/resources/node/
 
-          cp cli/cli.js electron/resources/cli/
-          cp cli/package.json electron/resources/cli/
-          cp -R cli/app electron/resources/cli/app
-          [ -d cli/node_modules ] && cp -R cli/node_modules electron/resources/cli/node_modules || true
+          Copy-Item cli/cli.js electron/resources/cli/
+          Copy-Item cli/package.json electron/resources/cli/
+          Copy-Item -Recurse cli/app electron/resources/cli/app
+          if (Test-Path cli/node_modules) {
+            Copy-Item -Recurse cli/node_modules electron/resources/cli/node_modules
+          }
 
       - name: Build Electron MSI
         run: |
@@ -755,6 +773,11 @@ jobs:
         uses: actions/download-artifact@v4
         with: { name: cli-bundle, path: . }
       - run: tar -xzf cli-bundle.tar.gz
+
+      - name: Download icons
+        uses: actions/download-artifact@v4
+        with: { name: icons, path: build }
+        continue-on-error: true
 
       - name: Prepare Electron resources
         run: |
