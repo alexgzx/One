@@ -605,25 +605,25 @@ jobs:
 
           echo "📝 生成验证报告"
           cat > "$RUNNER_TEMP/verify/verification-report.txt" <<REPORT
-========================================
-${{ env.APP_NAME }} macOS 验证报告
-========================================
-版本: $VER
-日期: $(date)
-状态: ✅ 通过
+          ========================================
+          $APP_NAME macOS 验证报告
+          ========================================
+          版本: $VER
+          日期: $(date)
+          状态: ✅ 通过
 
-验证步骤:
-1. ✅ DMG 文件挂载成功
-2. ✅ 应用安装到 /Applications
-3. ✅ 应用启动成功
-4. ✅ HTTP 服务正常运行 (端口 $PORT)
-5. ✅ 关键路由验证通过
-6. ✅ 界面截图完成
+          验证步骤:
+          1. ✅ DMG 文件挂载成功
+          2. ✅ 应用安装到 /Applications
+          3. ✅ 应用启动成功
+          4. ✅ HTTP 服务正常运行 (端口 $PORT)
+          5. ✅ 关键路由验证通过
+          6. ✅ 界面截图完成
 
-服务日志位置: server.log
-截图位置: 04-app-running.png, 05-app-opened.png, 06-service-status.png
-========================================
-REPORT
+          服务日志位置: server.log
+          截图位置: 04-app-running.png, 05-app-opened.png, 06-service-status.png
+          ========================================
+          REPORT
 
           echo "🧹 优雅退出"
           kill $PID 2>/dev/null
