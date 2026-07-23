@@ -854,7 +854,7 @@ export default function ProviderDetailPage() {
     <Modal
       isOpen={showBulkProxyModal}
       onClose={closeBulkProxyModal}
-      title={`Apply Proxy (${connections.length} connections)`}
+      title={`应用代理 (${connections.length} connections)`}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
@@ -1098,9 +1098,9 @@ export default function ProviderDetailPage() {
   if (!providerInfo) {
     return (
       <div className="text-center py-20">
-        <p className="text-text-muted">Provider not found</p>
+        <p className="text-text-muted">提供商未找到</p>
         <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
-          Back to Providers
+          返回提供商
         </Link>
       </div>
     );
@@ -1126,7 +1126,7 @@ export default function ProviderDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
-          Back to Providers
+          返回提供商
         </Link>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div
@@ -1160,7 +1160,7 @@ export default function ProviderDetailPage() {
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-sm">open_in_new</span>
-                  {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
+                  {providerInfo.notice?.apiKeyUrl ? "获取 API Key" : "注册/了解更多"}
                 </a>
               )}
             </div>
@@ -1189,7 +1189,7 @@ export default function ProviderDetailPage() {
               rel="noopener noreferrer"
               className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
             >
-              Get API Key →
+              获取 API Key →
             </a>
           )}
         </div>
@@ -1199,7 +1199,7 @@ export default function ProviderDetailPage() {
         <Card>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold">{isAnthropicCompatible ? "Anthropic Compatible Details" : "OpenAI Compatible Details"}</h2>
+              <h2 className="text-lg font-semibold">{isAnthropicCompatible ? "Anthropic 兼容详情" : "OpenAI 兼容详情"}</h2>
               <p className="break-all text-sm text-text-muted">
                 {isAnthropicCompatible ? "Messages API" : (providerNode.apiType === "responses" ? "Responses API" : "Chat Completions")} · {(providerNode.baseUrl || "").replace(/\/$/, "")}/
                 {isAnthropicCompatible ? "messages" : (providerNode.apiType === "responses" ? "responses" : "chat/completions")}
@@ -1215,7 +1215,7 @@ export default function ProviderDetailPage() {
                 }}
                 className="w-full sm:w-auto"
               >
-                Add API Key
+                添加 API Key
               </Button>
               <Button
                 size="sm"
@@ -1224,7 +1224,7 @@ export default function ProviderDetailPage() {
                 onClick={() => setShowEditNodeModal(true)}
                 className="w-full sm:w-auto"
               >
-                Edit
+                编辑
               </Button>
               <Button
                 size="sm"
@@ -1232,8 +1232,8 @@ export default function ProviderDetailPage() {
                 icon="delete"
                 onClick={async () => {
                   setConfirmState({
-                    title: "Delete Compatible Node",
-                    message: `Delete this ${isAnthropicCompatible ? "Anthropic" : "OpenAI"} Compatible node?`,
+                    title: "删除兼容节点",
+                    message: `删除此 ${isAnthropicCompatible ? "Anthropic" : "OpenAI"} 兼容节点？`,
                     onConfirm: async () => {
                       setConfirmState(null);
                       try {
@@ -1249,7 +1249,7 @@ export default function ProviderDetailPage() {
                 }}
                 className="w-full sm:w-auto"
               >
-                Delete
+                删除
               </Button>
             </div>
           </div>
@@ -1262,7 +1262,7 @@ export default function ProviderDetailPage() {
       ) : (
         <Card>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold">Connections</h2>
+            <h2 className="text-lg font-semibold">连接</h2>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               {connections.length > 0 && proxyPools.length > 0 && (
                 <Button
@@ -1271,7 +1271,7 @@ export default function ProviderDetailPage() {
                   icon="lan"
                   onClick={() => setShowBulkProxyModal(true)}
                 >
-                  Apply Proxy
+                  应用代理
                 </Button>
               )}
               {connections.length > 0 && (
@@ -1283,7 +1283,7 @@ export default function ProviderDetailPage() {
                     onClick={handleRunOneByOneTest}
                     disabled={oneByOneRunning}
                   >
-                    {oneByOneRunning ? "Testing Connection One-by-One..." : "Test Connection One-by-One"}
+                    {oneByOneRunning ? "逐一测试连接中..." : "逐一测试连接"}
                   </Button>
                   {oneByOneRunning && (
                     <Button
@@ -1293,7 +1293,7 @@ export default function ProviderDetailPage() {
                       onClick={handleStopOneByOneTest}
                       disabled={oneByOneStopping}
                     >
-                      {oneByOneStopping ? "Stopping..." : "Stop"}
+                      {oneByOneStopping ? "停止中..." : "停止"}
                     </Button>
                   )}
                 </>
@@ -1315,14 +1315,14 @@ export default function ProviderDetailPage() {
               )} */}
               {/* Round Robin toggle */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-text-muted font-medium">Round Robin</span>
+                <span className="text-xs text-text-muted font-medium">轮询模式</span>
                 <Toggle
                   checked={providerStrategy === "round-robin"}
                   onChange={handleRoundRobinToggle}
                 />
                 {providerStrategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-text-muted">Sticky:</span>
+                    <span className="text-xs text-text-muted">粘性:</span>
                     <input
                       type="number"
                       min={1}
@@ -1344,10 +1344,10 @@ export default function ProviderDetailPage() {
                   <span className="material-symbols-outlined text-[18px]">{isOAuth ? "lock" : "key"}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-text-muted">No connections yet</p>
+                  <p className="text-sm text-text-muted">暂无连接</p>
                   {hasDualAuthModes && (
                     <p className="text-xs text-text-muted">
-                      Choose {oauthConnectionLabel} or {apiKeyConnectionLabel}.
+                      选择 {oauthConnectionLabel} 或 {apiKeyConnectionLabel}。
                     </p>
                   )}
                 </div>
@@ -1379,7 +1379,7 @@ export default function ProviderDetailPage() {
                       icon="add"
                       onClick={triggerAddConnection}
                     >
-                      {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
+                      {isCompatible ? "添加 API Key" : (providerId === "iflow" ? "OAuth" : "添加连接")}
                     </Button>
                   </>
                 )}
@@ -1412,7 +1412,7 @@ export default function ProviderDetailPage() {
                       icon="cookie"
                       variant="secondary"
                       onClick={() => setShowIFlowCookieModal(true)}
-                      title="Add connection using browser cookie"
+                      title="使用浏览器 Cookie 添加连接"
                       className="w-full sm:w-auto"
                     >
                       Cookie
@@ -1457,7 +1457,7 @@ export default function ProviderDetailPage() {
                       onClick={triggerAddConnection}
                       className="w-full sm:w-auto"
                     >
-                      Add
+                      添加
                     </Button>
                   )}
                 </div>
@@ -1471,7 +1471,7 @@ export default function ProviderDetailPage() {
       <Card>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold">
-            {"Available Models"}
+            {"可用模型"}
           </h2>
           {!isCompatible && (() => {
             const allIds = [
@@ -1483,12 +1483,12 @@ export default function ProviderDetailPage() {
               <div className="flex gap-2">
                 {disabledModelIds.length > 0 && (
                   <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
-                    Active All
+                    全部启用
                   </Button>
                 )}
                 {activeIds.length > 0 && (
                   <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
-                    Disable All
+                    全部禁用
                   </Button>
                 )}
               </div>

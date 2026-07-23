@@ -47,14 +47,14 @@ function getStatusDisplay(connected, error, errorCode) {
   if (connected > 0) {
     parts.push(
       <Badge key="connected" variant="success" size="sm" dot>
-        {connected} Connected
+        {connected} 已连接
       </Badge>,
     );
   }
   if (error > 0) {
     const errText = errorCode
-      ? `${error} Error (${errorCode})`
-      : `${error} Error`;
+      ? `${error} 错误 (${errorCode})`
+      : `${error} 错误`;
     parts.push(
       <Badge key="error" variant="error" size="sm" dot>
         {errText}
@@ -62,7 +62,7 @@ function getStatusDisplay(connected, error, errorCode) {
     );
   }
   if (parts.length === 0) {
-    return <span className="text-text-muted">No connections</span>;
+    return <span className="text-text-muted">无连接</span>;
   }
   return parts;
 }
@@ -140,7 +140,7 @@ export default function ProvidersPage() {
   );
 
   useEffect(() => {
-    registerSearch("Search providers...");
+    registerSearch("搜索提供商...");
     return () => unregisterSearch();
   }, [registerSearch, unregisterSearch]);
 
@@ -246,7 +246,7 @@ export default function ProvidersPage() {
 
     const error = errorConns.length;
     const total = providerConnections.length;
-    const allDisabled =
+    const all已禁用 =
       total > 0 && providerConnections.every((c) => c.isActive === false);
 
     const latestError = errorConns.sort(
@@ -257,7 +257,7 @@ export default function ProvidersPage() {
       ? getRelativeTime(latestError.lastErrorAt)
       : null;
 
-    return { connected, error, total, errorCode, errorTime, allDisabled };
+    return { connected, error, total, errorCode, errorTime, all已禁用 };
   };
 
   // Toggle all connections for a provider on/off. authType may be a single
@@ -400,7 +400,7 @@ export default function ProvidersPage() {
           <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">
             search_off
           </span>
-          <p className="text-text-muted text-sm">No providers match your search</p>
+          <p className="text-text-muted text-sm">没有匹配的提供商</p>
         </div>
       )}
 
@@ -417,7 +417,7 @@ export default function ProvidersPage() {
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
             >
-              Add Anthropic Compatible
+              添加 Anthropic 兼容
             </Button>
             <Button
               size="sm"
@@ -426,7 +426,7 @@ export default function ProvidersPage() {
               onClick={() => setShowAddCompatibleModal(true)}
               className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
             >
-              Add OpenAI Compatible
+              添加 OpenAI 兼容
             </Button>
           </div>
         </div>
@@ -461,7 +461,7 @@ export default function ProvidersPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            OAuth Providers
+            OAuth 提供商
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ModelAvailabilityBadge />
@@ -496,7 +496,7 @@ export default function ProvidersPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Free Tier Providers
+            免费提供商
           </h2>
 
         </div>
@@ -549,7 +549,7 @@ export default function ProvidersPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            API Key Providers{" "}
+            API Key 提供商{" "}
           </h2>
 
         </div>
@@ -580,7 +580,7 @@ export default function ProvidersPage() {
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-[16px]">expand_more</span>
-            Show all {apikeyEntries.length} providers
+            显示全部 {apikeyEntries.length} 个提供商
           </button>
         )}
       </div>
@@ -638,7 +638,7 @@ export default function ProvidersPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-border bg-surface/95 backdrop-blur-sm rounded-t-xl">
-              <h3 className="font-semibold">Test Results</h3>
+              <h3 className="font-semibold">测试结果</h3>
               <button
                 onClick={() => setTestResults(null)}
                 className="p-1 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
@@ -674,7 +674,7 @@ function SortableProviderCard({ providerId, provider, stats, authType, onToggle 
     zIndex: isDragging ? 1000 : "auto",
   };
 
-  const { connected, error, errorCode, errorTime, allDisabled } = stats;
+  const { connected, error, errorCode, errorTime, all已禁用 } = stats;
   const isNoAuth = !!provider.noAuth;
   const isReady = connected > 0 || isNoAuth;
 
@@ -691,7 +691,7 @@ function SortableProviderCard({ providerId, provider, stats, authType, onToggle 
       <Link href={`/dashboard/providers/${providerId}`} className="block">
         <Card
           padding="xs"
-          className={`h-full transition-all duration-300 ease-out ${allDisabled ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
+          className={`h-full transition-all duration-300 ease-out ${all已禁用 ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
         >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -724,17 +724,17 @@ function SortableProviderCard({ providerId, provider, stats, authType, onToggle 
                 {provider.name}
               </h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
-                {allDisabled ? (
+                {all已禁用 ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
-                      Disabled
+                      已禁用
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
-                  <Badge variant="success" size="sm" dot className="animate-pulse">Ready</Badge>
+                  <Badge variant="success" size="sm" dot className="animate-pulse">就绪</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
@@ -753,14 +753,14 @@ function SortableProviderCard({ providerId, provider, stats, authType, onToggle 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onToggle(!allDisabled ? false : true);
+                  onToggle(!all已禁用 ? false : true);
                 }}
               >
                 <Toggle
                   size="sm"
-                  checked={!allDisabled}
+                  checked={!all已禁用}
                   onChange={() => {}}
-                  title={allDisabled ? "Enable provider" : "Disable provider"}
+                  title={all已禁用 ? "启用提供商" : "禁用提供商"}
                 />
               </div>
             )}
@@ -831,7 +831,7 @@ function ApiKeyProviderCard({
     zIndex: isDragging ? 1000 : "auto",
   };
 
-  const { connected, error, errorCode, errorTime, allDisabled } = stats;
+  const { connected, error, errorCode, errorTime, all已禁用 } = stats;
   const isCompatible = providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
   const isAnthropicCompatible = providerId.startsWith(
     ANTHROPIC_COMPATIBLE_PREFIX,
@@ -860,7 +860,7 @@ function ApiKeyProviderCard({
       <Link href={`/dashboard/providers/${providerId}`} className="block">
         <Card
           padding="xs"
-          className={`h-full transition-all duration-300 ease-out ${allDisabled ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
+          className={`h-full transition-all duration-300 ease-out ${all已禁用 ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
         >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -893,13 +893,13 @@ function ApiKeyProviderCard({
                 {provider.name}
               </h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
-                {allDisabled ? (
+                {all已禁用 ? (
                   <Badge variant="default" size="sm">
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">
                         pause_circle
                       </span>
-                      Disabled
+                      已禁用
                     </span>
                   </Badge>
                 ) : (
@@ -932,14 +932,14 @@ function ApiKeyProviderCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onToggle(!allDisabled ? false : true);
+                  onToggle(!all已禁用 ? false : true);
                 }}
               >
                 <Toggle
                   size="sm"
-                  checked={!allDisabled}
+                  checked={!all已禁用}
                   onChange={() => {}}
-                  title={allDisabled ? "Enable provider" : "Disable provider"}
+                  title={all已禁用 ? "启用提供商" : "禁用提供商"}
                 />
               </div>
             )}
@@ -1005,27 +1005,27 @@ function ProviderTestResultsView({ results }) {
   const modeLabel =
     {
       oauth: "OAuth",
-      free: "Free",
+      free: "免费",
       apikey: "API Key",
-      provider: "Provider",
-      all: "All",
+      provider: "提供商",
+      all: "全部",
     }[mode] || mode;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {summary && (
         <div className="flex flex-wrap items-center gap-2 text-xs mb-1 sm:gap-3">
-          <span className="text-text-muted">{modeLabel} Test</span>
+          <span className="text-text-muted">{modeLabel} 测试</span>
           <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
-            {summary.passed} passed
+            {summary.passed} 通过
           </span>
           {summary.failed > 0 && (
             <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-medium">
-              {summary.failed} failed
+              {summary.failed} 失败
             </span>
           )}
           <span className="text-text-muted sm:ml-auto">
-            {summary.total} tested
+            {summary.total} 已测试
           </span>
         </div>
       )}
@@ -1065,7 +1065,7 @@ function ProviderTestResultsView({ results }) {
       ))}
       {items.length === 0 && (
         <div className="text-center py-4 text-text-muted text-sm">
-          No active connections found for this group.
+          此组中没有活动连接。
         </div>
       )}
     </div>

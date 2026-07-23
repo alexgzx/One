@@ -12,7 +12,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isOllamaLocal = provider === "ollama-local";
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
-  const credentialLabel = isCookie ? "Cookie Value" : "API Key";
+  const credentialLabel = isCookie ? "Cookie 值" : "API Key";
   const credentialPlaceholder = isCookie
     ? (provider === "grok-web" ? "sso=xxxxx... or just the raw value" : "eyJhbGciOi...")
     : (isXaiApiKey ? "xai-..." : "");
@@ -158,17 +158,17 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   if (!provider) return null;
 
   return (
-    <Modal isOpen={isOpen} title={`Add ${providerName || provider} ${credentialLabel}`} onClose={onClose}>
+    <Modal isOpen={isOpen} title={`添加 ${providerName || provider} ${credentialLabel}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
         {/* Mode switcher */}
         <div className="flex gap-2">
-          <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>Single</Button>
-          <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>Bulk Add</Button>
+          <Button size="sm" variant={mode === "single" ? "primary" : "ghost"} onClick={() => { setMode("single"); setBulkResult(null); }}>单个添加</Button>
+          <Button size="sm" variant={mode === "bulk" ? "primary" : "ghost"} onClick={() => { setMode("bulk"); setBulkResult(null); }}>批量添加</Button>
         </div>
 
         {mode === "bulk" && (
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-text-muted">One key per line. Format: <code>name|apiKey</code> or just <code>apiKey</code> (auto-named by index).</p>
+            <p className="text-xs text-text-muted">每行一个密钥。格式：<code>name|apiKey</code> 或仅 <code>apiKey</code>（按索引自动命名）。</p>
             <textarea
               className="w-full rounded border border-accent/30 bg-sidebar p-2 text-sm font-mono resize-y min-h-[140px] focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder={BULK_PLACEHOLDER}
@@ -182,24 +182,24 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             )}
             <div className="flex gap-2">
               <Button onClick={handleBulkSubmit} fullWidth disabled={saving || !bulkText.trim()}>
-                {saving ? "Adding..." : "Add All Keys"}
+                {saving ? "添加中..." : "添加所有密钥"}
               </Button>
-              <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
+              <Button onClick={onClose} variant="ghost" fullWidth>取消</Button>
             </div>
           </div>
         )}
 
         {mode === "single" && (<>
         <Input
-          label="Name"
+          label="名称"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder={isOllamaLocal ? "Ollama Local" : "Production Key"}
+          placeholder={isOllamaLocal ? "Ollama 本地" : "生产密钥"}
         />
         {isOllamaLocal && (
           <div className="flex gap-2">
             <Input
-              label="Ollama Host URL"
+              label="Ollama 主机地址"
               value={formData.ollamaHostUrl}
               onChange={(e) => setFormData({ ...formData, ollamaHostUrl: e.target.value })}
               placeholder="http://localhost:11434"
@@ -207,7 +207,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             />
             <div className="pt-6">
               <Button onClick={handleValidate} disabled={validating || saving} variant="secondary">
-                {validating ? "Checking..." : "Check"}
+                {validating ? "检查中..." : "检查"}
               </Button>
             </div>
           </div>
@@ -224,14 +224,14 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             />
             <div className="pt-6">
               <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-                {validating ? "Checking..." : "Check"}
+                {validating ? "检查中..." : "检查"}
               </Button>
             </div>
           </div>
         )}
         {isXaiApiKey && (
           <p className="text-xs text-text-muted">
-            Use a direct xAI API key from console.x.ai. This is separate from Grok Build OAuth.
+            使用来自 console.x.ai 的直接 xAI API 密钥。这与 Grok Build OAuth 是分开的。
           </p>
         )}
         {isCookie && authHint && (
@@ -249,7 +249,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         )}
         {providerRegions && (
           <Select
-            label="Region"
+            label="区域"
             value={region}
             onChange={(e) => setRegion(e.target.value)}
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
@@ -257,7 +257,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         )}
         {isCompatible && (
           <Input
-            label="Default Model"
+            label="默认模型"
             value={formData.defaultModel}
             onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })}
             placeholder={isAnthropic ? "claude-3-5-sonnet-latest" : "gpt-4o-mini"}
@@ -265,12 +265,12 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         )}
         {isOllamaLocal && (
           <p className="text-xs text-text-muted">
-            Leave blank to use <code>http://localhost:11434</code>. For remote Ollama, enter the full host URL (e.g. <code>http://192.168.1.10:11434</code>).
+            留空使用 <code>http://localhost:11434</code>。对于远程 Ollama，请输入完整的主机地址（例如 <code>http://192.168.1.10:11434</code>）。
           </p>
         )}
         {validationResult && (
           <Badge variant={validationResult === "success" ? "success" : "error"}>
-            {validationResult === "success" ? "Valid" : "Invalid"}
+            {validationResult === "success" ? "有效" : "无效"}
           </Badge>
         )}
         {error && (
@@ -278,89 +278,89 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         )}
         {isCompatible && (
           <p className="text-xs text-text-muted">
-            Enter the model ID exactly as your compatible endpoint expects it. This model will be saved as the connection default.
+            请按照兼容端点期望的格式输入模型 ID。此模型将作为连接的默认模型保存。
           </p>
         )}
         {isCloudflareAi && (
           <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
             <h3 className="font-semibold mb-3 text-sm">Cloudflare Workers AI</h3>
             <Input
-              label="Account ID"
+              label="账户 ID"
               value={cloudflareData.accountId}
               onChange={(e) => setCloudflareData({ ...cloudflareData, accountId: e.target.value })}
               placeholder="abc123def456..."
             />
             <p className="text-xs text-text-muted mt-2">
-              Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+              在 <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a> 的右侧边栏中找到您的账户 ID。
             </p>
           </div>
         )}
         {isAzure && (
           <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
-            <h3 className="font-semibold mb-3 text-sm">Azure OpenAI Configuration</h3>
+            <h3 className="font-semibold mb-3 text-sm">Azure OpenAI 配置</h3>
             <div className="flex flex-col gap-3">
               <Input
-                label="Azure Endpoint"
+                label="Azure 端点"
                 value={azureData.azureEndpoint}
                 onChange={(e) => setAzureData({ ...azureData, azureEndpoint: e.target.value })}
                 placeholder="https://your-resource.openai.azure.com"
               />
               <Input
-                label="Deployment Name"
+                label="部署名称"
                 value={azureData.deployment}
                 onChange={(e) => setAzureData({ ...azureData, deployment: e.target.value })}
                 placeholder="gpt-4"
               />
               <Input
-                label="API Version"
+                label="API 版本"
                 value={azureData.apiVersion}
                 onChange={(e) => setAzureData({ ...azureData, apiVersion: e.target.value })}
                 placeholder="2024-10-01-preview"
               />
               <Input
-                label="Organization"
+                label="组织"
                 value={azureData.organization}
                 onChange={(e) => setAzureData({ ...azureData, organization: e.target.value })}
-                placeholder="Organization ID"
+                placeholder="组织 ID"
               />
             </div>
           </div>
         )}
 
         <Input
-          label="Priority"
+          label="优先级"
           type="number"
           value={formData.priority}
           onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value) || 1 })}
         />
 
         <Select
-          label="Proxy Pool"
+          label="代理池"
           value={formData.proxyPoolId}
           onChange={(e) => setFormData({ ...formData, proxyPoolId: e.target.value })}
           options={[
-            { value: NONE_PROXY_POOL_VALUE, label: "None" },
+            { value: NONE_PROXY_POOL_VALUE, label: "无" },
             ...(proxyPools || []).map((pool) => ({ value: pool.id, label: pool.name })),
           ]}
-          placeholder="None"
+          placeholder="无"
         />
 
         {(proxyPools || []).length === 0 && (
           <p className="text-xs text-text-muted">
-            No active proxy pools available. Create one in Proxy Pools page first.
+            没有可用的活动代理池。请先在代理池页面创建一个。
           </p>
         )}
 
         <p className="text-xs text-text-muted">
-          Legacy manual proxy fields are still accepted by API for backward compatibility.
+          为了向后兼容，API 仍然接受旧版手动代理字段。
         </p>
 
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? "保存中..." : "保存"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancel
+            取消
           </Button>
         </div>
         </>)}

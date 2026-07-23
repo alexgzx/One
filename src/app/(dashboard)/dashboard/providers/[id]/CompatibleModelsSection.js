@@ -17,55 +17,54 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
     : undefined;
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
-      <span
-        className="material-symbols-outlined text-base text-text-muted"
-        style={iconColor ? { color: iconColor } : undefined}
-      >
-        {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{modelId}</p>
-        <div className="flex items-center gap-1 mt-1">
-          <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
-          <div className="relative group/btn">
+    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2.5 ${borderColor} hover:bg-sidebar/50`}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span
+          className="material-symbols-outlined shrink-0 text-base"
+          style={iconColor ? { color: iconColor } : undefined}
+        >
+          {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <code className="max-w-[72vw] truncate rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 font-mono text-sm font-semibold text-zinc-700 dark:text-zinc-200 sm:max-w-[400px]">{fullModel}</code>
+        </div>
+        {onTest && (
+          <div className="relative shrink-0 group/btn">
             <button
-              onClick={() => onCopy(fullModel, `model-${modelId}`)}
-              className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary"
+              onClick={onTest}
+              disabled={isTesting}
+              className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
             >
-              <span className="material-symbols-outlined text-sm">
-                {copied === `model-${modelId}` ? "check" : "content_copy"}
+              <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
-            <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {copied === `model-${modelId}` ? "Copied!" : "Copy"}
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-xs text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+              {isTesting ? "测试中..." : "测试"}
             </span>
           </div>
-          {onTest && (
-            <div className="relative group/btn">
-              <button
-                onClick={onTest}
-                disabled={isTesting}
-                className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-colors"
-              >
-                <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                  {isTesting ? "progress_activity" : "science"}
-                </span>
-              </button>
-              <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testing..." : "Test"}
-              </span>
-            </div>
-          )}
+        )}
+        <div className="relative shrink-0 group/btn">
+          <button
+            onClick={() => onCopy(fullModel, `model-${modelId}`)}
+            className="rounded p-0.5 text-text-muted hover:bg-sidebar hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-sm">
+              {copied === `model-${modelId}` ? "check" : "content_copy"}
+            </span>
+          </button>
+          <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-xs text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+            {copied === `model-${modelId}` ? "已复制!" : "复制"}
+          </span>
         </div>
+        <button
+          onClick={onDeleteAlias}
+          className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+          title="删除模型"
+        >
+          <span className="material-symbols-outlined text-sm">close</span>
+        </button>
       </div>
-      <button
-        onClick={onDeleteAlias}
-        className="p-1 hover:bg-red-50 rounded text-red-500"
-        title="Remove model"
-      >
-        <span className="material-symbols-outlined text-sm">delete</span>
-      </button>
     </div>
   );
 }
@@ -112,7 +111,6 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
   const resolveAlias = (modelId) => {
     const fullModel = `${providerStorageAlias}/${modelId}`;
-    // Skip if this exact model already has an alias
     if (Object.values(modelAliases).includes(fullModel)) return null;
     const baseAlias = generateDefaultAlias(modelId);
     if (!modelAliases[baseAlias]) return baseAlias;
@@ -126,7 +124,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     const modelId = newModel.trim();
     const resolvedAlias = resolveAlias(modelId);
     if (!resolvedAlias) {
-      alert("All suggested aliases already exist. Please choose a different model or remove conflicting aliases.");
+      alert("所有建议的别名已存在。请选择其他模型或删除冲突的别名。");
       return;
     }
 
@@ -151,12 +149,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       const res = await fetch(`/api/providers/${activeConnection.id}/models`);
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to import models");
+        alert(data.error || "导入模型失败");
         return;
       }
       const models = data.models || [];
       if (models.length === 0) {
-        alert("No models returned from /models.");
+        alert("/models 未返回任何模型。");
         return;
       }
       let importedCount = 0;
@@ -169,7 +167,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         importedCount += 1;
       }
       if (importedCount === 0) {
-        alert("No new models were added.");
+        alert("未添加任何新模型。");
       }
     } catch (error) {
       console.log("Error importing models:", error);
@@ -183,12 +181,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
-        Add {isAnthropic ? "Anthropic" : "OpenAI"}-compatible models manually or import them from the /models endpoint.
+        手动添加 {isAnthropic ? "Anthropic" : "OpenAI"} 兼容模型或从 /models 端点导入。
       </p>
 
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">Model ID</label>
+          <label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">模型 ID</label>
           <input
             id="new-compatible-model-input"
             type="text"
@@ -200,21 +198,21 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
           />
         </div>
         <Button size="sm" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding}>
-          {adding ? "Adding..." : "Add"}
+          {adding ? "添加中..." : "添加"}
         </Button>
         <Button size="sm" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing}>
-          {importing ? "Importing..." : "Import from /models"}
+          {importing ? "导入中..." : "从 /models 导入"}
         </Button>
       </div>
 
       {!canImport && (
         <p className="text-xs text-text-muted">
-          Add a connection to enable importing models.
+          添加连接以启用模型导入。
         </p>
       )}
 
       {allModels.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-3">
           {allModels.map(({ modelId, fullModel, alias }) => (
             <CompatibleModelRow
               key={fullModel}

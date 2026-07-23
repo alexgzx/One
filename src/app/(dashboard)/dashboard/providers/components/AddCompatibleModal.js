@@ -6,25 +6,25 @@ import { Badge, Button, Input, Modal, Select } from "@/shared/components";
 
 const VARIANT_CONFIG = {
   openai: {
-    title: "Add OpenAI Compatible",
+    title: "添加 OpenAI 兼容",
     type: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com/v1",
-    namePlaceholder: "OpenAI Compatible (Prod)",
+    namePlaceholder: "OpenAI 兼容 (生产)",
     prefixPlaceholder: "oc-prod",
-    baseUrlHint: "Use the base URL (ending in /v1) for your OpenAI-compatible API.",
-    modelIdPlaceholder: "e.g. gpt-4, claude-3-opus",
-    errorLabel: "OpenAI Compatible",
+    baseUrlHint: "使用 OpenAI 兼容 API 的基础 URL（以 /v1 结尾）。",
+    modelIdPlaceholder: "例如 gpt-4, claude-3-opus",
+    errorLabel: "OpenAI 兼容",
     hasApiType: true,
   },
   anthropic: {
-    title: "Add Anthropic Compatible",
+    title: "添加 Anthropic 兼容",
     type: "anthropic-compatible",
     defaultBaseUrl: "https://api.anthropic.com/v1",
-    namePlaceholder: "Anthropic Compatible (Prod)",
+    namePlaceholder: "Anthropic 兼容 (生产)",
     prefixPlaceholder: "ac-prod",
-    baseUrlHint: "Use the base URL (ending in /v1) for your Anthropic-compatible API. The system will append /messages.",
-    modelIdPlaceholder: "e.g. claude-3-opus",
-    errorLabel: "Anthropic Compatible",
+    baseUrlHint: "使用 Anthropic 兼容 API 的基础 URL（以 /v1 结尾）。系统将追加 /messages。",
+    modelIdPlaceholder: "例如 claude-3-opus",
+    errorLabel: "Anthropic 兼容",
     hasApiType: false,
   },
 };
@@ -118,16 +118,16 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     if (valid) {
       return (
         <>
-          <Badge variant="success">Valid</Badge>
+          <Badge variant="success">有效</Badge>
           {method === "chat" && (
-            <span className="text-sm text-text-muted">(via inference test)</span>
+            <span className="text-sm text-text-muted">(通过推理测试)</span>
           )}
         </>
       );
     }
     return (
       <div className="flex flex-col gap-1">
-        <Badge variant="error">Invalid</Badge>
+        <Badge variant="error">无效</Badge>
         {error && <span className="text-sm text-red-500">{error}</span>}
       </div>
     );
@@ -137,46 +137,46 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     <Modal isOpen={isOpen} title={config.title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Input
-          label="Name"
+          label="名称"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder={config.namePlaceholder}
-          hint="Required. A friendly label for this node."
+          hint="必填。此节点的友好标签。"
         />
         <Input
-          label="Prefix"
+          label="前缀"
           value={formData.prefix}
           onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
           placeholder={config.prefixPlaceholder}
-          hint="Required. Used as the provider prefix for model IDs."
+          hint="必填。用作模型 ID 的提供商前缀。"
         />
         {config.hasApiType && (
           <Select
-            label="API Type"
+            label="API 类型"
             options={API_TYPE_OPTIONS}
             value={formData.apiType}
             onChange={(e) => setFormData({ ...formData, apiType: e.target.value })}
           />
         )}
         <Input
-          label="Base URL"
+          label="基础 URL"
           value={formData.baseUrl}
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
         />
         <Input
-          label="API Key (for Check)"
+          label="API Key（用于检查）"
           type="password"
           value={checkKey}
           onChange={(e) => setCheckKey(e.target.value)}
         />
         <Input
-          label="Model ID (optional)"
+          label="模型 ID（可选）"
           value={checkModelId}
           onChange={(e) => setCheckModelId(e.target.value)}
           placeholder={config.modelIdPlaceholder}
-          hint="If provider lacks /models endpoint, enter a model ID to validate via chat/completions instead."
+          hint="如果提供商缺少 /models 端点，请输入模型 ID 通过 chat/completions 进行验证。"
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button
@@ -185,7 +185,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
             variant="secondary"
             className="w-full sm:w-auto"
           >
-            {validating ? "Checking..." : "Check"}
+            {validating ? "检查中..." : "检查"}
           </Button>
           {renderValidationResult()}
         </div>
@@ -200,10 +200,10 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
               submitting
             }
           >
-            {submitting ? "Creating..." : "Create"}
+            {submitting ? "创建中..." : "创建"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancel
+            取消
           </Button>
         </div>
       </div>
