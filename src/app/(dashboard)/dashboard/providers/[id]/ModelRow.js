@@ -15,8 +15,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
     : undefined;
 
   return (
-    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
-      <div className="flex min-w-0 items-start gap-2 sm:items-center">
+    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2.5 ${borderColor} hover:bg-sidebar/50`}>
+      <div className="flex min-w-0 items-center gap-2.5">
         <span
           className="material-symbols-outlined shrink-0 text-base"
           style={iconColor ? { color: iconColor } : undefined}
@@ -24,10 +24,10 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
           {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <code className="max-w-[72vw] truncate rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[12.5px] font-medium text-zinc-700 dark:text-zinc-200 sm:max-w-[360px]">{fullModel}</code>
+          <code className="max-w-[72vw] truncate rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-1 font-mono text-sm font-semibold text-zinc-700 dark:text-zinc-200 sm:max-w-[400px]">{fullModel}</code>
           <span className="flex min-w-0 items-center gap-1.5 pl-1">
-            {model.name && <span className="truncate text-[12px] font-medium text-zinc-600 dark:text-zinc-300">{model.name}</span>}
-            <CapacityBadges caps={caps} colorOverride="text-zinc-500 dark:text-zinc-400" size={13} />
+            {model.name && <span className="truncate text-sm font-medium text-zinc-600 dark:text-zinc-300">{model.name}</span>}
+            <CapacityBadges caps={caps} colorOverride="text-zinc-500 dark:text-zinc-400" size={14} />
           </span>
         </div>
         {onTest && (
@@ -41,8 +41,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
                 {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
-            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {isTesting ? "Testing..." : "Test"}
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-xs text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+              {isTesting ? "测试中..." : "测试"}
             </span>
           </div>
         )}
@@ -55,8 +55,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
               {copied === `model-${model.id}` ? "check" : "content_copy"}
             </span>
           </button>
-          <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-            {copied === `model-${model.id}` ? "Copied!" : "Copy"}
+          <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-xs text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+            {copied === `model-${model.id}` ? "已复制!" : "复制"}
           </span>
         </div>
         {isCustom ? (

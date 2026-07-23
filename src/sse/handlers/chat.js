@@ -10,6 +10,8 @@ import {
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
+import { FREE_PROVIDERS } from "@/shared/constants/providers.js";
+import { PROVIDER_MODELS } from "open-sse/config/providerModels.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { handleComboChat, handleFusionChat } from "open-sse/services/combo.js";
@@ -65,23 +67,53 @@ export async function handleChat(request, clientRawRequest = null) {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  // Enforce API key if enabled in settings
-  const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
-  }
-
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
+  }
+
+  const settings = await getSettings();
+  if (settings.requireApiKey) {
+    const allModels = await getComboModels(modelStr) || [modelStr];
+    const noAuthResult = await Promise.all(allModels.map(async (m) => {
+      const info = await getModelInfo(m);
+      if (info.provider && FREE_PROVIDERS[info.provider]?.noAuth) {
+        return true;
+      }
+      if (!info.provider && m.includes("/")) {
+        const providerPart = m.split("/")[0];
+        for (const [providerId, provider] of Object.entries(FREE_PROVIDERS)) {
+          if (provider.noAuth && (providerId === providerPart || provider.alias === providerPart)) {
+            return true;
+          }
+        }
+      }
+      if (!info.provider && !m.includes("/")) {
+        for (const provider of Object.values(FREE_PROVIDERS)) {
+          if (provider.noAuth) {
+            const modelKey = provider.alias || provider.id;
+            const models = PROVIDER_MODELS[modelKey] || [];
+            if (models.some(model => model.id === m)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }));
+    const hasNoAuth = noAuthResult.some(Boolean);
+    
+    if (!hasNoAuth) {
+      if (!apiKey) {
+        log.warn("AUTH", "Missing API key (requireApiKey=true)");
+        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+      }
+      const valid = await isValidApiKey(apiKey);
+      if (!valid) {
+        log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+      }
+    }
   }
 
   // Bypass naming/warmup requests before combo rotation to avoid wasting rotation slots

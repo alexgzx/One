@@ -11,14 +11,14 @@ export const CONNECTIONS_PAGE_SIZE = 20;
 export const ACCOUNT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const ACCOUNT_PAGE_SIZE_MAX = 500;
 export const ACCOUNT_FILTER_OPTIONS = [
-  { value: "all", label: "All accounts" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Turned off" },
+  { value: "all", label: "所有账号" },
+  { value: "active", label: "活跃" },
+  { value: "inactive", label: "已关闭" },
 ];
 export const QUOTA_SORT_OPTIONS = [
-  { value: "default", label: "Default quota order" },
-  { value: "remaining-asc", label: "% quota: low to high" },
-  { value: "remaining-desc", label: "% quota: high to low" },
+  { value: "default", label: "默认配额顺序" },
+  { value: "remaining-asc", label: "% 配额: 低到高" },
+  { value: "remaining-desc", label: "% 配额: 高到低" },
 ];
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -111,26 +111,26 @@ export function getConnectionsEmptyMessage(totals, providerFilter, accountFilter
   if (!totals.eligibleConnections) {
     return {
       icon: "cloud_off",
-      title: "No Providers Connected",
+      title: "未连接提供商",
       description:
-        "Connect to providers with OAuth to track your API quota limits and usage.",
+        "通过OAuth连接提供商以跟踪API配额限制和使用情况。",
     };
   }
   if (!totals.providerFilteredConnections) {
     return {
       icon: "filter_alt_off",
-      title: "No Accounts Match Current Filters",
+      title: "没有匹配当前筛选条件的账号",
       description:
         providerFilter === "all"
-          ? "Try changing the account status filter to see more quota trackers."
-          : `No ${accountFilter === "inactive" ? "turned off" : accountFilter === "active" ? "active" : "matching"} accounts found for ${providerFilter}.`,
+          ? "尝试更改账号状态筛选器以查看更多配额跟踪器。"
+          : `在 ${providerFilter} 中未找到${accountFilter === "inactive" ? "已关闭" : accountFilter === "active" ? "活跃" : "匹配"}的账号。`,
     };
   }
   return {
     icon: "filter_alt_off",
-    title: "No Accounts On This Page",
+    title: "此页面没有账号",
     description:
-      "Try moving to another page or refreshing the current filters.",
+      "尝试切换到其他页面或刷新当前筛选条件。",
   };
 }
 

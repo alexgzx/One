@@ -44,11 +44,22 @@ function OneIcon({ size = 15, className }) {
       viewBox="0 0 1024 1024"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={cn("transition-transform duration-300 ease-out", className)}
     >
+      <defs>
+        <linearGradient id="oneIconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#E56A4A" />
+          <stop offset="100%" stopColor="#cc5236" />
+        </linearGradient>
+        <filter id="oneIconGlow">
+          <feDropShadow dx="0" dy="0" stdDeviation="8" floodOpacity="0.2" floodColor="#E56A4A" />
+        </filter>
+      </defs>
       <path
         d="M487.904 6.528L88.128 238.208a48.32 48.32 0 0 0-24.032 41.952V743.68c0 17.248 9.184 33.28 24.064 41.888l399.776 231.904c14.944 8.672 33.28 8.672 48.224 0l399.616-231.808c14.944-8.736 24.064-24.672 24.096-41.888V280.16a48.64 48.64 0 0 0-24.16-41.984L536.192 6.496a47.936 47.936 0 0 0-48.224 0z"
-        fill="#339933"
+        fill="url(#oneIconGradient)"
+        filter="url(#oneIconGlow)"
+        className="transition-all duration-300"
       />
     </svg>
   );
@@ -139,13 +150,23 @@ function NavItem({ href, icon, label, active, onClose, indent = false, collapsed
         onClick={onClose}
         title={label}
         className={cn(
-          "flex items-center justify-center mx-auto size-9 rounded-lg transition-colors duration-150",
+          "relative flex items-center justify-center mx-auto size-9 rounded-lg transition-all duration-250 ease-out overflow-hidden",
           active
-            ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100"
+            ? "bg-gradient-to-br from-brand-50 dark:from-brand-500/15 to-brand-100/50 dark:to-brand-500/5 text-brand-600 dark:text-brand-400"
             : "text-zinc-400 dark:text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 hover:text-zinc-700 dark:hover:text-zinc-200"
         )}
       >
-        <IconComponent size={CONFIG.iconSize} strokeWidth={CONFIG.iconStrokeWidth} />
+        {active && (
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-500/5 to-transparent animate-pulse" />
+        )}
+        <IconComponent 
+          size={CONFIG.iconSize} 
+          strokeWidth={CONFIG.iconStrokeWidth}
+          className={cn(
+            "relative z-10 transition-transform duration-250",
+            active && "scale-110"
+          )}
+        />
       </Link>
     );
   }
@@ -155,23 +176,40 @@ function NavItem({ href, icon, label, active, onClose, indent = false, collapsed
       href={href}
       onClick={onClose}
       className={cn(
-        "flex items-center gap-2.5 transition-colors duration-100 ease-out",
+        "relative flex items-center gap-2.5 transition-all duration-200 ease-out overflow-hidden",
         indent ? "pl-9 pr-3 py-1" : CONFIG.itemPadding,
         CONFIG.itemRadius,
         active
-          ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 font-medium"
+          ? "bg-gradient-to-r from-brand-50 dark:from-brand-500/10 to-brand-50/50 dark:to-transparent text-brand-700 dark:text-brand-300 font-medium"
           : "text-zinc-500 dark:text-zinc-400 font-normal hover:bg-zinc-50 dark:hover:bg-zinc-800/40 hover:text-zinc-700 dark:hover:text-zinc-200"
       )}
     >
+      {active && (
+        <div 
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-brand-400 to-brand-600 rounded-r-full"
+          style={{
+            boxShadow: "0 0 8px rgba(229, 106, 74, 0.4)"
+          }}
+        />
+      )}
       <IconComponent
         size={indent ? 14 : CONFIG.iconSize}
         strokeWidth={CONFIG.iconStrokeWidth}
         className={cn(
-          "flex-shrink-0",
-          active ? "text-zinc-700 dark:text-zinc-200" : "text-zinc-400 dark:text-zinc-500"
+          "relative z-10 flex-shrink-0 transition-all duration-250",
+          active 
+            ? "text-brand-600 dark:text-brand-400 scale-105" 
+            : "text-zinc-400 dark:text-zinc-500 group-hover:scale-105"
         )}
       />
-      <span className={CONFIG.fontSize}>{label}</span>
+      <span className={cn(CONFIG.fontSize, "relative z-10 transition-all duration-200")}>
+        {label}
+      </span>
+      {active && (
+        <div className="absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-brand-500/5 rounded-full blur-xl" />
+        </div>
+      )}
     </Link>
   );
 }
@@ -304,18 +342,17 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
       {/* 顶部品牌区 + 折叠按钮 */}
       <div className={cn("flex items-center pt-4 pb-3", collapsed ? "px-3 justify-center" : "px-3 justify-between")}>
         {!collapsed && (
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center size-7">
-              <OneIcon size={28} />
-            </div>
-            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 tracking-tight">
+          <div className="flex items-center group">
+            <span className="text-lg font-bold text-zinc-800 dark:text-zinc-100 tracking-tight transition-all duration-300 group-hover:text-brand-600 dark:group-hover:text-brand-400">
               One
             </span>
           </div>
         )}
         {collapsed && (
-          <div className="flex items-center justify-center size-7">
-            <OneIcon size={28} />
+          <div className="flex items-center justify-center">
+            <span className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
+              O
+            </span>
           </div>
         )}
       </div>

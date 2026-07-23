@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import {
   Card,
@@ -24,6 +24,23 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
 import AddCompatibleModal from "./components/AddCompatibleModal";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 function getStatusDisplay(connected, error, errorCode) {
   const parts = [];
@@ -104,10 +121,23 @@ export default function ProvidersPage() {
     useState(false);
   const [testingMode, setTestingMode] = useState(null);
   const [testResults, setTestResults] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [draggingItem, setDraggingItem] = useState(null);
   const notify = useNotificationStore();
   const searchQuery = useHeaderSearchStore((s) => s.query);
   const registerSearch = useHeaderSearchStore((s) => s.register);
   const unregisterSearch = useHeaderSearchStore((s) => s.unregister);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     registerSearch("Search providers...");
@@ -118,29 +148,50 @@ export default function ProvidersPage() {
     !searchQuery.trim() ||
     name.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
+  const handleDragStart = (event) => {
+    const { active } = event;
+    setActiveId(active.id);
+  };
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+    setDraggingItem(null);
+
+    if (over && active.id !== over.id) {
+    }
+  };
+
+  const resolveAuthType = (authType) => {
+    if (authType === "freeTier") return "apikey";
+    return authType;
+  };
+
   const sortByPriority = (entries, authType) =>
     [...entries].sort(([ka, a], [kb, b]) => {
+      const resolvedAuthType = resolveAuthType(authType);
+      const sa = getProviderStats(ka, resolvedAuthType);
+      const sb = getProviderStats(kb, resolvedAuthType);
+      const isReadyA = sa.connected > 0 || a.noAuth;
+      const isReadyB = sb.connected > 0 || b.noAuth;
+      if (isReadyA !== isReadyB) return isReadyA ? -1 : 1;
       const pa = a.priority ?? 999;
       const pb = b.priority ?? 999;
       if (pa !== pb) return pa - pb;
-      const sa = getProviderStats(ka, authType);
-      const sb = getProviderStats(kb, authType);
-      const ca = sa.connected > 0 ? 1 : 0;
-      const cb = sb.connected > 0 ? 1 : 0;
-      if (ca !== cb) return cb - ca;
       return (a.name || "").localeCompare(b.name || "");
     });
 
   const sortItemsByPriority = (items, authType) =>
     [...items].sort((a, b) => {
+      const resolvedAuthType = resolveAuthType(authType);
+      const sa = getProviderStats(a.id, resolvedAuthType);
+      const sb = getProviderStats(b.id, resolvedAuthType);
+      const isReadyA = sa.connected > 0 || a.noAuth;
+      const isReadyB = sb.connected > 0 || b.noAuth;
+      if (isReadyA !== isReadyB) return isReadyA ? -1 : 1;
       const pa = a.priority ?? 999;
       const pb = b.priority ?? 999;
       if (pa !== pb) return pa - pb;
-      const sa = getProviderStats(a.id, authType);
-      const sb = getProviderStats(b.id, authType);
-      const ca = sa.connected > 0 ? 1 : 0;
-      const cb = sb.connected > 0 ? 1 : 0;
-      if (ca !== cb) return cb - ca;
       return (a.name || "").localeCompare(b.name || "");
     });
 
@@ -280,18 +331,30 @@ export default function ProvidersPage() {
     Object.entries(OAUTH_PROVIDERS).filter(([, info]) => !info.hidden && matchSearch(info.name)),
     "oauth",
   );
-  const freeEntries = Object.entries(FREE_PROVIDERS)
-    .filter(([, info]) => !info.hidden && matchSearch(info.name))
-    .sort(([, a], [, b]) => (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0));
-  const freeTierEntries = sortByPriority(
-    Object.entries(FREE_TIER_PROVIDERS).filter(
+  const allFreeProviders = [
+    ...Object.entries(FREE_PROVIDERS).filter(([, info]) => !info.hidden && matchSearch(info.name)).map(([k, v]) => ({ ...v, id: k, originalType: "free" })),
+    ...Object.entries(FREE_TIER_PROVIDERS).filter(
       ([, info]) =>
         !info.hidden &&
         matchSearch(info.name) &&
         (info.serviceKinds ?? ["llm"]).includes("llm"),
-    ),
-    "freeTier",
-  ).sort(([, a], [, b]) => (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0));
+    ).map(([k, v]) => ({ ...v, id: k, originalType: "freeTier" })),
+  ];
+
+  const sortedFreeProviders = [...allFreeProviders].sort((a, b) => {
+    const sa = getProviderStats(a.id, a.originalType === "free" ? "apikey" : "apikey");
+    const sb = getProviderStats(b.id, b.originalType === "free" ? "apikey" : "apikey");
+    const isReadyA = sa.connected > 0 || a.noAuth;
+    const isReadyB = sb.connected > 0 || b.noAuth;
+    if (isReadyA !== isReadyB) return isReadyA ? -1 : 1;
+    const pa = a.priority ?? 999;
+    const pb = b.priority ?? 999;
+    if (pa !== pb) return pa - pb;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+
+  const freeEntries = sortedFreeProviders.filter(p => p.originalType === "free").map(p => [p.id, p]);
+  const freeTierEntries = sortedFreeProviders.filter(p => p.originalType === "freeTier").map(p => [p.id, p]);
   // API Key: connected providers first, then alphabetical by name
   const apikeyEntries = Object.entries(APIKEY_PROVIDERS)
     .filter(
@@ -402,38 +465,29 @@ export default function ProvidersPage() {
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ModelAvailabilityBadge />
-            <button
-              onClick={() => handleBatchTest("oauth")}
-              disabled={!!testingMode}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-                testingMode === "oauth"
-                  ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                  : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-              }`}
-              title="Test all OAuth connections"
-              aria-label="Test all OAuth connections"
-            >
-              <span
-                className={`material-symbols-outlined text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
-              >
-                play_arrow
-              </span>
-              {testingMode === "oauth" ? "Testing..." : "Test All"}
-            </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {oauthEntries.map(([key, info]) => (
-            <ProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "oauth")}
-              authType="oauth"
-              onToggle={(active) => handleToggleProvider(key, "oauth", active)}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={oauthEntries.map(([k]) => k)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {oauthEntries.map(([key, info]) => (
+                <SortableProviderCard
+                  key={key}
+                  providerId={key}
+                  provider={info}
+                  stats={getProviderStats(key, "oauth")}
+                  authType="oauth"
+                  onToggle={(active) => handleToggleProvider(key, "oauth", active)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
       )}
 
@@ -444,57 +498,49 @@ export default function ProvidersPage() {
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             Free Tier Providers
           </h2>
-          <button
-            onClick={() => handleBatchTest("free")}
-            disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "free"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-            }`}
-            title="Test all Free connections"
-            aria-label="Test all Free provider connections"
-          >
-            <span
-              className={`material-symbols-outlined text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
-            >
-              play_arrow
-            </span>
-            {testingMode === "free" ? "Testing..." : "Test All"}
-          </button>
+
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {freeEntries.map(([key, info]) => {
-            // Kiro accepts both OAuth and api-key connections; count/toggle both
-            // so the card total matches the provider detail page (#kiro-apikey).
-            // Kiro's headless api-key flow persists authType "api_key" (underscore),
-            // while generic apikey providers use "apikey" — include both spellings.
-            const freeAuthTypes =
-              key === "kiro" ? ["oauth", "apikey", "api_key"] : "oauth";
-            return (
-              <ProviderCard
-                key={key}
-                providerId={key}
-                provider={info}
-                stats={getProviderStats(key, freeAuthTypes)}
-                authType="free"
-                onToggle={(active) =>
-                  handleToggleProvider(key, freeAuthTypes, active)
-                }
-              />
-            );
-          })}
-          {freeTierEntries.map(([key, info]) => (
-            <ApiKeyProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "apikey")}
-              authType="apikey"
-              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={[...freeEntries.map(([k]) => k), ...freeTierEntries.map(([k]) => k)]} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {freeEntries.map(([key, info]) => {
+                // Kiro accepts both OAuth and api-key connections; count/toggle both
+                // so the card total matches the provider detail page (#kiro-apikey).
+                // Kiro's headless api-key flow persists authType "api_key" (underscore),
+                // while generic apikey providers use "apikey" — include both spellings.
+                const freeAuthTypes =
+                  key === "kiro" ? ["oauth", "apikey", "api_key"] : "oauth";
+                return (
+                  <SortableProviderCard
+                    key={key}
+                    providerId={key}
+                    provider={info}
+                    stats={getProviderStats(key, freeAuthTypes)}
+                    authType="free"
+                    onToggle={(active) =>
+                      handleToggleProvider(key, freeAuthTypes, active)
+                    }
+                  />
+                );
+              })}
+              {freeTierEntries.map(([key, info]) => (
+                <ApiKeyProviderCard
+                  key={key}
+                  providerId={key}
+                  provider={info}
+                  stats={getProviderStats(key, "apikey")}
+                  authType="apikey"
+                  onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
       )}
 
@@ -505,37 +551,29 @@ export default function ProvidersPage() {
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             API Key Providers{" "}
           </h2>
-          <button
-            onClick={() => handleBatchTest("apikey")}
-            disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "apikey"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-            }`}
-            title="Test all API Key connections"
-            aria-label="Test all API Key connections"
-          >
-            <span
-              className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
-            >
-              play_arrow
-            </span>
-            {testingMode === "apikey" ? "Testing..." : "Test All"}
-          </button>
+
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleApikeyEntries.map(([key, info]) => (
-            <ApiKeyProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "apikey")}
-              authType="apikey"
-              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={visibleApikeyEntries.map(([k]) => k)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {visibleApikeyEntries.map(([key, info]) => (
+                <ApiKeyProviderCard
+                  key={key}
+                  providerId={key}
+                  provider={info}
+                  stats={getProviderStats(key, "apikey")}
+                  authType="apikey"
+                  onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
         {!isApikeySearching && !showAllApikey && hiddenApikeyCount > 0 && (
           <button
             onClick={() => setShowAllApikey(true)}
@@ -619,37 +657,57 @@ export default function ProvidersPage() {
   );
 }
 
-function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
+function SortableProviderCard({ providerId, provider, stats, authType, onToggle }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: providerId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : "auto",
+  };
+
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isNoAuth = !!provider.noAuth;
+  const isReady = connected > 0 || isNoAuth;
 
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
+  const handleDragClick = (e) => {
+    e.stopPropagation();
   };
 
   return (
-    <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
-      <Card
-        padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
-      >
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group min-w-0"
+    >
+      <Link href={`/dashboard/providers/${providerId}`} className="block">
+        <Card
+          padding="xs"
+          className={`h-full transition-all duration-300 ease-out ${allDisabled ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
+        >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div
-              className="size-8 shrink-0 rounded-lg flex items-center justify-center"
+              className="relative size-8 shrink-0 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
               style={{
                 backgroundColor: `${provider.color?.length > 7 ? provider.color : provider.color + "15"}`,
+                boxShadow: isReady ? `0 0 12px ${provider.color}30` : "none"
               }}
             >
+              {isReady && (
+                <div 
+                  className="absolute -top-1 -right-1 size-3 rounded-full bg-green-500 border-2 border-white dark:border-zinc-800 shadow-sm"
+                  style={{ boxShadow: "0 0 8px rgba(34, 197, 94, 0.5)" }}
+                />
+              )}
               <ProviderIcon
                 src={`/providers/${provider.id}.png`}
                 alt={provider.name}
@@ -662,7 +720,9 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
               />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate font-semibold">{provider.name}</h3>
+              <h3 className="truncate font-semibold transition-colors duration-200 group-hover:text-primary">
+                {provider.name}
+              </h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
@@ -674,7 +734,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
-                  <Badge variant="success" size="sm" dot>Ready</Badge>
+                  <Badge variant="success" size="sm" dot className="animate-pulse">Ready</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
@@ -689,7 +749,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
           <div className="flex shrink-0 items-center gap-2">
             {stats.total > 0 && (
               <div
-                className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                className="opacity-100 transition-all duration-200 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-x-0 sm:group-hover:translate-x-0"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -704,14 +764,33 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
                 />
               </div>
             )}
+            <div
+              {...attributes}
+              {...listeners}
+              onClick={handleDragClick}
+              className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing"
+              title="拖拽排序"
+            >
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+              </div>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+              </div>
+            </div>
           </div>
         </div>
       </Card>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
-ProviderCard.propTypes = {
+SortableProviderCard.propTypes = {
   providerId: PropTypes.string.isRequired,
   provider: PropTypes.shape({
     id: PropTypes.string.isRequired,
@@ -736,23 +815,31 @@ function ApiKeyProviderCard({
   authType,
   onToggle,
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: providerId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : "auto",
+  };
+
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isCompatible = providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
   const isAnthropicCompatible = providerId.startsWith(
     ANTHROPIC_COMPATIBLE_PREFIX,
   );
+  const isReady = connected > 0;
 
-  const dotColors = {
-    free: "bg-green-500",
-    oauth: "bg-blue-500",
-    apikey: "bg-amber-500",
-    compatible: "bg-orange-500",
-  };
-  const dotLabels = {
-    free: "Free",
-    oauth: "OAuth",
-    apikey: "API Key",
-    compatible: "Compatible",
+  const handleDragClick = (e) => {
+    e.stopPropagation();
   };
 
   const getIconPath = () => {
@@ -765,19 +852,31 @@ function ApiKeyProviderCard({
   };
 
   return (
-    <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
-      <Card
-        padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
-      >
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group min-w-0"
+    >
+      <Link href={`/dashboard/providers/${providerId}`} className="block">
+        <Card
+          padding="xs"
+          className={`h-full transition-all duration-300 ease-out ${allDisabled ? "opacity-50" : "hover:scale-[1.02]"} ${isDragging ? "shadow-2xl" : ""}`}
+        >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div
-              className="size-8 shrink-0 rounded-lg flex items-center justify-center"
+              className="relative size-8 shrink-0 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
               style={{
                 backgroundColor: `${provider.color?.length > 7 ? provider.color : provider.color + "15"}`,
+                boxShadow: isReady ? `0 0 12px ${provider.color}30` : "none"
               }}
             >
+              {isReady && (
+                <div 
+                  className="absolute -top-1 -right-1 size-3 rounded-full bg-green-500 border-2 border-white dark:border-zinc-800 shadow-sm"
+                  style={{ boxShadow: "0 0 8px rgba(34, 197, 94, 0.5)" }}
+                />
+              )}
               <ProviderIcon
                 src={getIconPath()}
                 alt={provider.name}
@@ -790,7 +889,9 @@ function ApiKeyProviderCard({
               />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate font-semibold">{provider.name}</h3>
+              <h3 className="truncate font-semibold transition-colors duration-200 group-hover:text-primary">
+                {provider.name}
+              </h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
                 {allDisabled ? (
                   <Badge variant="default" size="sm">
@@ -827,7 +928,7 @@ function ApiKeyProviderCard({
           <div className="flex shrink-0 items-center gap-2">
             {stats.total > 0 && (
               <div
-                className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                className="opacity-100 transition-all duration-200 sm:opacity-0 sm:group-hover:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -842,10 +943,29 @@ function ApiKeyProviderCard({
                 />
               </div>
             )}
+            <div
+              {...attributes}
+              {...listeners}
+              onClick={handleDragClick}
+              className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing"
+              title="拖拽排序"
+            >
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+              </div>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+                <div className="w-1 h-1 rounded-full bg-text-muted" />
+              </div>
+            </div>
           </div>
         </div>
       </Card>
-    </Link>
+      </Link>
+    </div>
   );
 }
 

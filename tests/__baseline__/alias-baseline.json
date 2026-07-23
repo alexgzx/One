@@ -131,7 +131,7 @@
     "minimax": "minimax",
     "minimax-cn": "minimax-cn",
     "mistral": "mistral",
-    "mmf": "mmf",
+    
     "nanobanana": "nanobanana",
     "nebius": "nebius",
     "nvidia": "nvidia",
@@ -200,7 +200,6 @@
     "minimax",
     "minimax-cn",
     "mistral",
-    "mmf",
     "nanobanana",
     "nebius",
     "nvidia",

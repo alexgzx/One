@@ -5,9 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
-import ThemeToggle from "@/shared/components/ThemeToggle";
 
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -204,27 +202,29 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               <div
                 key={`${crumb.label}-${crumb.href || "current"}`}
                 className="flex items-center gap-2"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {index > 0 && (
-                  <span className="material-symbols-outlined text-text-subtle text-[14px]">
+                  <span className="material-symbols-outlined text-text-subtle text-[14px] transition-transform duration-200 hover:scale-110">
                     chevron_right
                   </span>
                 )}
                 {crumb.href ? (
                   <Link
                     href={crumb.href}
-                    className="text-text-muted hover:text-primary transition-colors text-[13px]"
+                    className="text-text-muted hover:text-primary hover:scale-105 transition-all duration-200 text-[13px] relative"
                   >
-                    {crumb.label}
+                    <span className="relative z-10">{crumb.label}</span>
+                    <span className="absolute inset-0 bg-primary/5 rounded opacity-0 hover:opacity-100 transition-opacity duration-200" />
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 animate-fade-in-up">
                     {crumb.image && (
                       <ProviderIcon
                         src={crumb.image}
                         alt={crumb.label}
                         size={28}
-                        className="object-contain rounded max-w-[28px] max-h-[28px]"
+                        className="object-contain rounded max-w-[28px] max-h-[28px] transition-transform duration-200 hover:scale-110"
                         fallbackText={crumb.label.slice(0, 2).toUpperCase()}
                       />
                     )}
@@ -237,10 +237,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             ))}
           </div>
         ) : title ? (
-          <div>
+          <div className="animate-fade-in-up">
             <div className="flex items-center gap-2.5">
               {icon && (
-                <span className="material-symbols-outlined text-primary text-[18px] lg:text-[20px] fill-1">
+                <span className="material-symbols-outlined text-primary text-[18px] lg:text-[20px] fill-1 transition-transform duration-200 hover:scale-110">
                   {icon}
                 </span>
               )}
@@ -249,7 +249,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
               </h1>
             </div>
             {description && (
-              <p className="hidden lg:block text-[12px] text-text-muted truncate mt-0.5">
+              <p className="hidden lg:block text-[12px] text-text-muted truncate mt-0.5 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
                 {translate(description)}
               </p>
             )}
@@ -257,12 +257,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         ) : null}
       </div>
 
-      {/* Right actions - 精致按钮组 */}
+      {/* Right actions */}
       <div className="flex items-center gap-1.5 shrink-0">
         <HeaderSearch />
-        <ThemeToggle />
-        <HeaderLanguage />
-        <HeaderMenu />
       </div>
     </header>
   );
@@ -277,8 +274,8 @@ function HeaderSearch() {
   if (!visible) return null;
 
   return (
-    <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
+    <div className="relative w-[160px] sm:w-[220px] transition-all duration-300 ease-out focus-within:w-[200px] focus-within:sm:w-[280px]">
+      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none transition-colors duration-200 focus-within:text-primary">
         search
       </span>
       <input
@@ -286,16 +283,16 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        className="w-full h-8 pl-7 pr-7 rounded-xl border border-border bg-surface/80 text-sm focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all duration-200"
       />
       {query && (
         <button
           type="button"
           onClick={() => setQuery("")}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main hover:bg-surface-3 p-0.5 rounded-full transition-all duration-200"
           aria-label="Clear search"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <span className="material-symbols-outlined text-[14px]">close</span>
         </button>
       )}
     </div>

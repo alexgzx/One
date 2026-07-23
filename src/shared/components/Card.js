@@ -25,11 +25,11 @@ export default function Card({
   return (
     <div
       className={cn(
-        "relative bg-surface border border-border-subtle overflow-hidden",
+        "relative bg-surface border border-border-subtle overflow-hidden transition-all duration-300 ease-out",
         elev
           ? "rounded-2xl shadow-[var(--shadow-elev)]"
           : "rounded-2xl shadow-[var(--shadow-card)]",
-        hover && "card-hover cursor-pointer",
+        hover && "card-hover cursor-pointer hover:-translate-y-0.5 hover:shadow-[var(--shadow-elev)]",
         paddings[padding],
         className
       )}
@@ -37,11 +37,28 @@ export default function Card({
     >
       {/* 卡片顶部高光线条 - 高级质感 */}
       <div className="pointer-events-none absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-white/40 dark:via-white/8 to-transparent" />
+      
+      {/* 悬浮渐变光效 */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-transparent opacity-0 transition-opacity duration-500" 
+           style={{
+             transform: 'scale(0.95)',
+             transition: 'opacity 500ms ease-out, transform 500ms ease-out'
+           }}
+           onMouseEnter={(e) => {
+             e.currentTarget.style.opacity = '1';
+             e.currentTarget.style.transform = 'scale(1)';
+           }}
+           onMouseLeave={(e) => {
+             e.currentTarget.style.opacity = '0';
+             e.currentTarget.style.transform = 'scale(0.95)';
+           }}
+      />
+      
       {(title || action) && (
-        <div className="flex items-center justify-between mb-5 pb-4 border-b border-border-subtle/60">
+        <div className="relative z-10 flex items-center justify-between mb-5 pb-4 border-b border-border-subtle/60">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="relative flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100/60 dark:from-brand-500/15 dark:to-brand-500/5 text-primary border border-brand-200/40 dark:border-brand-500/20">
+              <div className="relative flex items-center justify-center size-9 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100/60 dark:from-brand-500/15 dark:to-brand-500/5 text-primary border border-brand-200/40 dark:border-brand-500/20 transition-all duration-300 hover:scale-105 hover:shadow-[var(--shadow-sm)]">
                 <span className="material-symbols-outlined text-[18px] fill-1">{icon}</span>
               </div>
             )}
@@ -57,7 +74,7 @@ export default function Card({
           {action}
         </div>
       )}
-      {children}
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }

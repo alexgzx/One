@@ -6,7 +6,7 @@ import { formatResetTime, getRemainingPercentage } from "./utils";
 const PAGE_SIZE = 10;
 
 /**
- * Format reset time display (Today, 12:00 PM)
+ * Format reset time display (今天, 12:00 PM)
  */
 function formatResetTimeDisplay(resetTime) {
   if (!resetTime) return null;
@@ -20,17 +20,17 @@ function formatResetTimeDisplay(resetTime) {
 
     let dayStr = "";
     if (date >= today && date < tomorrow) {
-      dayStr = "Today";
+      dayStr = "今天";
     } else if (date >= tomorrow && date < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)) {
-      dayStr = "Tomorrow";
+      dayStr = "明天";
     } else {
-      dayStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      dayStr = date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
     }
 
-    const timeStr = date.toLocaleTimeString("en-US", {
+    const timeStr = date.toLocaleTimeString("zh-CN", {
       hour: "numeric",
       minute: "2-digit",
-      hour12: true,
+      hour12: false,
     });
 
     return `${dayStr}, ${timeStr}`;
@@ -137,11 +137,11 @@ export default function QuotaTable({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] text-text-muted">
-          {sortedQuotas.length} quota{sortedQuotas.length > 1 ? "s" : ""}
+          {sortedQuotas.length} 配额
         </div>
         {showSortLabel && (
           <div className="rounded-md border border-black/10 bg-black/[0.02] px-2 py-1 text-[10px] text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
-            {sortLabel}
+            按账号剩余排序
           </div>
         )}
       </div>
@@ -228,10 +228,10 @@ export default function QuotaTable({
         <div className="rounded-md border border-black/10 bg-black/[0.02] px-2 py-1.5 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted">
             <span>
-              Showing {pageStart}-{pageEnd} of {sortedQuotas.length}
+              显示 {pageStart}-{pageEnd} / {sortedQuotas.length}
             </span>
             <span>
-              Page {page} / {totalPages}
+              第 {page} 页 / 共 {totalPages} 页
             </span>
           </div>
           <div className="mt-1.5 flex items-center justify-end gap-1">
@@ -241,7 +241,7 @@ export default function QuotaTable({
               disabled={page === 1}
               className="flex h-6 items-center rounded-md border border-black/10 px-2 text-[10px] text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
             >
-              Prev
+              上一页
             </button>
             <button
               type="button"
@@ -249,7 +249,7 @@ export default function QuotaTable({
               disabled={page === totalPages}
               className="flex h-6 items-center rounded-md border border-black/10 px-2 text-[10px] text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
             >
-              Next
+              下一页
             </button>
           </div>
         </div>

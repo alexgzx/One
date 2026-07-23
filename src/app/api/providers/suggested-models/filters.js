@@ -23,4 +23,10 @@ export const FILTERS = {
     (Array.isArray(models) ? models : [])
       .filter((m) => m.id?.startsWith("mimo") || m.name?.toLowerCase().includes("mimo"))
       .map((m) => ({ id: m.id, name: m.name || m.id })),
+
+  // Kilo Code free models
+  "kilo-free": (models) =>
+    (Array.isArray(models) ? models : [])
+      .filter((m) => m.isFree === true || m.pricing?.prompt === "0")
+      .map((m) => ({ id: m.id, name: m.name || m.id, contextLength: m.context_length })),
 };

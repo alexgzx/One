@@ -3,16 +3,16 @@
 import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 
 let translationMap = {};
-let currentLocale = DEFAULT_LOCALE;
+let currentLocale = "zh-CN";
 let reloadCallbacks = [];
 
 // Read locale from cookie
 function getLocaleFromCookie() {
-  if (typeof document === "undefined") return DEFAULT_LOCALE;
+  if (typeof document === "undefined") return "zh-CN";
   const cookie = document.cookie
     .split(";")
     .find((c) => c.trim().startsWith(`${LOCALE_COOKIE}=`));
-  const value = cookie ? decodeURIComponent(cookie.split("=")[1]) : DEFAULT_LOCALE;
+  const value = cookie ? decodeURIComponent(cookie.split("=")[1]) : "zh-CN";
   return normalizeLocale(value);
 }
 
@@ -124,8 +124,8 @@ function processElement(element) {
 export async function initRuntimeI18n() {
   if (typeof window === "undefined") return;
   
-  currentLocale = getLocaleFromCookie();
-  await loadTranslations(currentLocale);
+  currentLocale = "zh-CN";
+  await loadTranslations("zh-CN");
   
   // Process existing DOM
   processElement(document.body);
@@ -151,8 +151,8 @@ export async function initRuntimeI18n() {
 
 // Reload translations when locale changes
 export async function reloadTranslations() {
-  currentLocale = getLocaleFromCookie();
-  await loadTranslations(currentLocale);
+  currentLocale = "zh-CN";
+  await loadTranslations("zh-CN");
   
   // Notify all registered callbacks
   reloadCallbacks.forEach(callback => callback());

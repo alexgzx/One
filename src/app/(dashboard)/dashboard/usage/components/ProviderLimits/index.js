@@ -623,7 +623,7 @@ export default function ProviderLimits() {
   };
 
   const selectedProviderLabel =
-    providerFilter === "all" ? "All providers" : providerFilter;
+    providerFilter === "all" ? "所有提供商" : providerFilter;
   const hasEligibleConnections = totals.eligibleConnections > 0;
   const hasVisibleConnections = sortedConnections.length > 0;
   const emptyState = getConnectionsEmptyMessage(
@@ -643,11 +643,10 @@ export default function ProviderLimits() {
             cloud_off
           </span>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            No Providers Connected
+            未连接提供商
           </h3>
           <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
-            Connect to providers with OAuth to track your API quota limits and
-            usage.
+            通过OAuth连接提供商以跟踪API配额限制和使用情况。
           </p>
         </div>
       </Card>
@@ -732,7 +731,7 @@ export default function ProviderLimits() {
                     <span className="material-symbols-outlined text-[22px]">
                       apps
                     </span>
-                    <span className="font-medium">All providers</span>
+                    <span className="font-medium">所有提供商</span>
                     {providerFilter === "all" && (
                       <span className="material-symbols-outlined ml-auto text-[20px]">
                         check
@@ -820,7 +819,7 @@ export default function ProviderLimits() {
             <span className="material-symbols-outlined text-[14px]">
               hourglass_top
             </span>
-            <span className="hidden sm:inline">Expiring first</span>
+            <span className="hidden sm:inline">即将过期优先</span>
           </button>
 
           {/* Bulk: disable depleted */}
@@ -832,7 +831,7 @@ export default function ProviderLimits() {
             title="Disable connections with depleted quota on the current page"
           >
             <span className="material-symbols-outlined text-[14px]">block</span>
-            <span className="hidden sm:inline">Turn off Empty</span>
+            <span className="hidden sm:inline">关闭已耗尽</span>
           </button>
 
           {/* Bulk: enable available */}
@@ -846,7 +845,7 @@ export default function ProviderLimits() {
             <span className="material-symbols-outlined text-[14px]">
               check_circle
             </span>
-            <span className="hidden sm:inline">Turn on Available</span>
+            <span className="hidden sm:inline">启用可用</span>
           </button>
 
           {/* Auto-refresh toggle */}
@@ -863,7 +862,7 @@ export default function ProviderLimits() {
               {autoRefresh ? "toggle_on" : "toggle_off"}
             </span>
             <span className="hidden text-text-primary sm:inline">
-              Auto-refresh
+              自动刷新
             </span>
             {autoRefresh && (
               <span className="text-[10px] text-text-muted tabular-nums">
@@ -893,8 +892,7 @@ export default function ProviderLimits() {
       {/* Provider cards: 2 columns, compact */}
       {expiringFirst && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          Expiring-first currently reorders accounts inside the current page.
-          Cross-page ordering still follows backend pagination.
+          过期优先仅在当前页内重排序，跨页排序仍遵循后端分页。
         </div>
       )}
 
@@ -1207,7 +1205,7 @@ export default function ProviderLimits() {
                 }
                 className="flex h-8 items-center rounded-lg border border-black/10 px-3 text-xs text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
               >
-                First Page
+                首页
               </button>
               <button
                 type="button"
@@ -1253,7 +1251,7 @@ export default function ProviderLimits() {
                 }
                 className="flex h-8 items-center rounded-lg border border-black/10 px-3 text-xs text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
               >
-                Last Page
+                末页
               </button>
             </div>
           </div>
@@ -1270,10 +1268,10 @@ export default function ProviderLimits() {
           await handleResetCodexLimit(connection.id, connection.provider);
           setResetConfirmState(null);
         }}
-        title="Reset Codex limit?"
-        message={`Use 1 Codex reset credit for ${getConnectionLabel(resetConfirmState?.connection || {}) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
-        confirmText="Reset limit"
-        cancelText="Cancel"
+        title="重置Codex限制？"
+        message={`为 ${getConnectionLabel(resetConfirmState?.connection || {}) || "此账号"} 使用1个Codex重置额度。此操作不可撤销。剩余额度: ${resetConfirmState?.resetCreditCount ?? 0}。`}
+        confirmText="重置限制"
+        cancelText="取消"
         variant="danger"
         loading={Boolean(resettingLimitId)}
       />

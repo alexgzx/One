@@ -7,113 +7,113 @@
 .fonts-loaded .material-symbols-outlined { visibility: visible; }
 
 /* ============================================================
-   9Router palette — adopted from 9remote_private/web
-   Brand orange (dark) / soft coral (light), neutral warm bases
+   9Router palette — Modern, refined color system
+   Warm amber-orange brand with soft neutrals
    ============================================================ */
 :root {
-  /* Brand scale (light) - centered on #E56A4A */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (light) - centered on #F59E0B */
+  --color-brand-50: #FFFBEB;
+  --color-brand-100: #FEF3C7;
+  --color-brand-200: #FDE68A;
+  --color-brand-300: #FCD34D;
+  --color-brand-400: #FBBF24;
+  --color-brand-500: #F59E0B;
+  --color-brand-600: #D97706;
+  --color-brand-700: #B45309;
+  --color-brand-800: #92400E;
+  --color-brand-900: #78350F;
 
   /* Primary (legacy alias for backward compat with existing components) */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
-  /* Surfaces & backgrounds (light) - 温润奶白 + 电影氛围基底 */
-  --color-bg: #FAFAF7;
-  --color-bg-alt: #F5F4F0;
-  --color-surface: #ffffff;
-  --color-surface-2: #F4F3EF;
-  --color-surface-3: #E6E4DE;
-  --color-sidebar: rgba(252, 251, 247, 0.78);
+  /* Surfaces & backgrounds (light) - Clean, modern whites */
+  --color-bg: #FFFFFF;
+  --color-bg-alt: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F1F5F9;
+  --color-surface-3: #E2E8F0;
+  --color-sidebar: rgba(255, 255, 255, 0.85);
 
-  /* Borders - 暖色微调 */
-  --color-border: #E5E3DC;
-  --color-border-subtle: #EFEDE6;
+  /* Borders - Subtle, refined */
+  --color-border: #E2E8F0;
+  --color-border-subtle: #F1F5F9;
 
-  /* Text - 高对比度 */
-  --color-text: #09090B;
-  --color-text-main: #09090B;
-  --color-text-muted: #71717A;
-  --color-text-subtle: #A1A1AA;
+  /* Text - High contrast, clean hierarchy */
+  --color-text: #0F172A;
+  --color-text-main: #1E293B;
+  --color-text-muted: #64748B;
+  --color-text-subtle: #94A3B8;
 
   /* Status */
-  --color-danger: #cf222e;
-  --color-success: #10B981;
+  --color-danger: #EF4444;
+  --color-success: #22C55E;
   --color-warning: #F59E0B;
   --color-info: #3B82F6;
 
-  /* Radius - 更柔和的圆角 */
-  --radius-brand: 10px;
+  /* Radius - Modern, rounded corners */
+  --radius-brand: 12px;
   --radius-brand-lg: 16px;
 
-  /* Shadows - 电影质感阴影层级 + 卡片漂浮感 */
-  --shadow-soft: 0 1px 2px -1px rgba(0,0,0,0.02), 0 1px 1px -1px rgba(0,0,0,0.03);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 106, 74, 0.18);
-  --shadow-card: 0 1px 2px rgba(0,0,0,0.03), 0 10px 40px -10px rgba(0,0,0,0.07);
-  --shadow-elevated: 0 8px 24px -8px rgba(0,0,0,0.08), 0 2px 8px -4px rgba(0,0,0,0.03);
+  /* Shadows - Soft, layered depth */
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  --shadow-warm: 0 4px 20px -4px rgba(245, 158, 11, 0.15);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.04), 0 4px 16px -4px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 12px 32px -8px rgba(0,0,0,0.08), 0 4px 12px -4px rgba(0,0,0,0.04);
   --shadow-elev:
-    inset 0 1px 0 0 rgba(255,255,255,0.9),
-    0 1px 2px rgba(0,0,0,0.02),
-    0 10px 40px -6px rgba(0,0,0,0.07);
-  --shadow-focus: 0 0 0 3px rgba(229,106,74,0.15);
+    inset 0 1px 0 0 rgba(255,255,255,0.8),
+    0 2px 8px rgba(0,0,0,0.04),
+    0 8px 24px -4px rgba(0,0,0,0.06);
+  --shadow-focus: 0 0 0 3px rgba(245, 158, 11, 0.15);
 
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (dark) - centered on #E56A4A, same as light for consistency */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (dark) - same warm amber-orange as light */
+  --color-brand-50: #FFFBEB;
+  --color-brand-100: #FEF3C7;
+  --color-brand-200: #FDE68A;
+  --color-brand-300: #FCD34D;
+  --color-brand-400: #FBBF24;
+  --color-brand-500: #F59E0B;
+  --color-brand-600: #D97706;
+  --color-brand-700: #B45309;
+  --color-brand-800: #92400E;
+  --color-brand-900: #78350F;
 
-  --color-primary: #E56A4A;
-  --color-primary-hover: #cc5236;
+  --color-primary: #F59E0B;
+  --color-primary-hover: #D97706;
 
-  /* Surfaces (dark - 蓝调深邃) */
-  --color-bg: #0E0E11;
-  --color-bg-alt: #131319;
-  --color-surface: #1A1A20;
-  --color-surface-2: #25252D;
-  --color-surface-3: #3F3F49;
-  --color-sidebar: rgba(14, 14, 17, 0.78);
+  /* Surfaces (dark - Deep, modern dark mode) */
+  --color-bg: #0F0F14;
+  --color-bg-alt: #15151C;
+  --color-surface: #1C1C26;
+  --color-surface-2: #25252F;
+  --color-surface-3: #32323E;
+  --color-sidebar: rgba(15, 15, 20, 0.85);
 
-  --color-border: #2A2A33;
-  --color-border-subtle: #1F1F26;
+  --color-border: #2A2A35;
+  --color-border-subtle: #22222C;
 
-  --color-text: #FAFAFA;
-  --color-text-main: #FAFAFA;
-  --color-text-muted: #A1A1AA;
-  --color-text-subtle: #71717A;
+  --color-text: #F1F5F9;
+  --color-text-main: #E2E8F0;
+  --color-text-muted: #94A3B8;
+  --color-text-subtle: #64748B;
 
-  --color-danger: #ef4444;
-  --color-success: #22c55e;
-  --color-warning: #fbbf24;
-  --color-info: #60a5fa;
+  --color-danger: #F87171;
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-info: #60A5FA;
 
-  --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 106, 74, 0.25);
-  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-warm: 0 4px 20px -4px rgba(245, 158, 11, 0.2);
+  --shadow-elevated: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
   --shadow-elev:
-    inset 0 1px 0 0 rgba(255,255,255,0.06),
-    0 1px 2px rgba(0,0,0,0.4),
-    0 16px 48px -8px rgba(0,0,0,0.55);
-  --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.18);
+    inset 0 1px 0 0 rgba(255,255,255,0.04),
+    0 2px 8px rgba(0,0,0,0.3),
+    0 8px 24px -4px rgba(0,0,0,0.4);
+  --shadow-focus: 0 0 0 3px rgba(245, 158, 11, 0.2);
 
   color-scheme: dark;
 }
@@ -200,7 +200,7 @@ select {
 }
 
 /* ============================================================
-   Base - 电影氛围 mesh 背景 + 噪点 + 字体优化
+   Base - Clean modern background + font optimization
    ============================================================ */
 body {
   background-color: var(--color-bg);
@@ -208,27 +208,24 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* 浅色：温润奶白 + 多色 mesh 氛围光（克制但能感知到温度） */
+  /* Clean subtle gradient background */
   background-image:
-    radial-gradient(ellipse 900px 700px at 18% 0%, rgba(229, 106, 74, 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 700px 600px at 85% 100%, rgba(229, 106, 74, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse 500px 500px at 50% 50%, rgba(245, 220, 200, 0.10) 0%, transparent 65%),
-    linear-gradient(180deg, #FAFAF8 0%, #F5F4F0 100%);
+    radial-gradient(ellipse 800px 600px at 15% 0%, rgba(245, 158, 11, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 500px at 85% 100%, rgba(245, 158, 11, 0.04) 0%, transparent 55%),
+    linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
   background-attachment: fixed;
-  /* 字体细节 */
   font-feature-settings: "cv11" 1, "ss01" 1;
   text-rendering: optimizeLegibility;
   position: relative;
   min-height: 100vh;
 }
 
-/* 暗色 mesh：紫 + 橙双色氛围光，破除死黑 */
+/* Dark mode - Deep, sophisticated */
 .dark body {
   background-image:
-    radial-gradient(ellipse 900px 700px at 18% 0%, rgba(99, 102, 241, 0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 700px 600px at 85% 100%, rgba(229, 106, 74, 0.08) 0%, transparent 55%),
-    radial-gradient(ellipse 500px 500px at 50% 50%, rgba(80, 80, 120, 0.06) 0%, transparent 65%),
-    linear-gradient(180deg, #0E0E11 0%, #131319 100%);
+    radial-gradient(ellipse 800px 600px at 15% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 500px at 85% 100%, rgba(99, 102, 241, 0.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0F0F14 0%, #15151C 100%);
 }
 
 /* 全局噪点纹理 - 增加胶片质感 */
@@ -252,19 +249,19 @@ body > * {
   z-index: 1;
 }
 
-/* Selection - 渐变品牌色 */
+/* Selection - Warm amber accent */
 ::selection {
-  background: linear-gradient(120deg, rgba(229, 106, 74, 0.28), rgba(229, 106, 74, 0.18));
+  background: linear-gradient(120deg, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.15));
   color: var(--color-brand-700);
 }
 .dark ::selection {
-  background: linear-gradient(120deg, rgba(229, 106, 74, 0.35), rgba(229, 106, 74, 0.2));
+  background: linear-gradient(120deg, rgba(245, 158, 11, 0.35), rgba(245, 158, 11, 0.2));
   color: var(--color-brand-200);
 }
 
-/* 全局键盘焦点环 - 精致品牌色 */
+/* 全局键盘焦点环 - Modern amber accent */
 *:focus-visible {
-  outline: 2px solid rgba(229, 106, 74, 0.55);
+  outline: 2px solid rgba(245, 158, 11, 0.55);
   outline-offset: 2px;
   border-radius: inherit;
 }
@@ -276,28 +273,28 @@ input, textarea {
 
 /* 全局精致滚动条（仅 webkit） */
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.05));
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.3), rgba(148, 163, 184, 0.15));
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(229, 106, 74, 0.4), rgba(229, 106, 74, 0.25));
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.4), rgba(245, 158, 11, 0.25));
   background-clip: padding-box;
 }
 .dark *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.2), rgba(148, 163, 184, 0.1));
   background-clip: padding-box;
 }
 .dark *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(229, 106, 74, 0.45), rgba(229, 106, 74, 0.25));
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.45), rgba(245, 158, 11, 0.25));
   background-clip: padding-box;
 }
 
@@ -553,6 +550,188 @@ button:disabled,
   z-index: 1;
 }
 .btn-cta > * { position: relative; z-index: 2; }
+
+/* ============================================================
+   Enhanced Animations (Hallmark)
+   ============================================================ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes fadeInUpStagger {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-1 { animation: fadeInUpStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 0ms; }
+.stagger-2 { animation: fadeInUpStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 50ms; }
+.stagger-3 { animation: fadeInUpStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 100ms; }
+.stagger-4 { animation: fadeInUpStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 150ms; }
+.stagger-5 { animation: fadeInUpStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; animation-delay: 200ms; }
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(4); opacity: 0; }
+}
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-effect::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+.ripple-effect:active::after {
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.gradient-flow {
+  background-size: 200% 200%;
+  animation: gradientFlow 8s ease infinite;
+}
+
+@keyframes numberRoll {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(0); }
+}
+.number-roll { animation: numberRoll 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes borderGradient {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+.border-gradient {
+  position: relative;
+}
+.border-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-brand-400), var(--color-brand-600), var(--color-brand-400));
+  background-size: 200% 200%;
+  animation: borderGradient 3s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+@keyframes breath {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+.animate-breath { animation: breath 2.5s ease-in-out infinite; }
+
+@keyframes slideIndicator {
+  0% { left: 0; }
+  100% { left: calc(100% - 8px); }
+}
+.slide-indicator {
+  position: relative;
+  overflow: hidden;
+}
+.slide-indicator::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  animation: slideIndicator 2s ease-in-out infinite;
+}
+
+@keyframes loadingShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.pulse-ring {
+  position: relative;
+}
+.pulse-ring::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background: var(--color-success);
+  animation: pulse-ring 1.5s ease-out infinite;
+  opacity: 0;
+}
+
+@keyframes progress-bar {
+  from { width: 0; }
+  to { width: var(--progress-width, 100%); }
+}
+.progress-bar-animate {
+  animation: progress-bar 1s ease-out forwards;
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.slide-in-left { animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pop-in { animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
 /* Dot Grid Background Pattern */
 .dot-grid-bg {
