@@ -62,12 +62,12 @@ function initWinTray(options) {
 
   // Send initial menu items
   items.forEach((item, index) => {
-    sendCommand({ action: "add-item", index, title: item.title, enabled: item.enabled });
+    sendCommand({ action: "add-item", index, title: item.title, enabled: item.enabled, checked: item.checked || false });
   });
 
   return {
-    updateItem(index, title, enabled) {
-      sendCommand({ action: "update-item", index, title, enabled });
+    updateItem(index, title, enabled, checked) {
+      sendCommand({ action: "update-item", index, title, enabled, checked: checked || false });
     },
     setTooltip(text) {
       sendCommand({ action: "set-tooltip", text });

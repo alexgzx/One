@@ -58,14 +58,15 @@ function initTray(options) {
  */
 function buildMenuItems(port, autostartEnabled) {
   return [
-    { title: `One（端口 ${port}）`, tooltip: "服务运行中", enabled: false },
-    { title: "打开控制台", tooltip: "在浏览器中打开", enabled: true },
+    { title: `One（端口 ${port}）`, tooltip: "服务运行中", enabled: false, checked: false },
+    { title: "打开控制台", tooltip: "在浏览器中打开", enabled: true, checked: false },
     {
-      title: autostartEnabled ? "✓ 开机自启已开启" : "开启开机自启",
+      title: autostartEnabled ? "开机自启" : "开机自启",
       tooltip: "随系统开机启动",
-      enabled: true
+      enabled: true,
+      checked: autostartEnabled
     },
-    { title: "退出", tooltip: "停止服务并退出", enabled: true }
+    { title: "退出", tooltip: "停止服务并退出", enabled: true, checked: false }
   ];
 }
 
@@ -125,8 +126,7 @@ function initWindowsTray(options) {
       items,
       onClick: (index) => {
         handleClick(index, options, (newEnabled) => {
-          const newTitle = newEnabled ? "✓ 开机自启已开启" : "开启开机自启";
-          trayInstance.updateItem(MENU_INDEX.AUTOSTART, newTitle, true);
+          trayInstance.updateItem(MENU_INDEX.AUTOSTART, "开机自启", true, newEnabled);
         });
       }
     });
@@ -216,9 +216,10 @@ function initUnixTray(options) {
         trayInstance.sendAction({
           type: "update-item",
           item: {
-            title: newEnabled ? "✓ Auto-start Enabled" : "Enable Auto-start",
-            tooltip: "Run on OS startup",
-            enabled: true
+            title: "开机自启",
+            tooltip: "随系统开机启动",
+            enabled: true,
+            checked: newEnabled
           },
           seq_id: MENU_INDEX.AUTOSTART
         });

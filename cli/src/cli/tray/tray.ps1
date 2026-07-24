@@ -25,20 +25,23 @@ function Write-Event($obj) {
   [Console]::Out.Flush()
 }
 
-function Add-MenuItem($index, $title, $enabled) {
+function Add-MenuItem($index, $title, $enabled, $checked) {
   $item = New-Object System.Windows.Forms.ToolStripMenuItem
   $item.Text = $title
   $item.Enabled = $enabled
+  $item.Checked = [bool]$checked
+  $item.CheckOnClick = $false
   $idx = $index
   $item.Add_Click({ Write-Event @{ type = "click"; index = $idx } }.GetNewClosure())
   $script:menu.Items.Add($item) | Out-Null
   $script:items += $item
 }
 
-function Update-MenuItem($index, $title, $enabled) {
+function Update-MenuItem($index, $title, $enabled, $checked) {
   if ($index -lt $script:items.Count) {
     $script:items[$index].Text = $title
     $script:items[$index].Enabled = $enabled
+    $script:items[$index].Checked = [bool]$checked
   }
 }
 
@@ -58,8 +61,8 @@ $script:timer.Add_Tick({
       if ([string]::IsNullOrWhiteSpace($line)) { continue }
       $cmd = $line | ConvertFrom-Json
       switch ($cmd.action) {
-        "add-item"    { Add-MenuItem $cmd.index $cmd.title $cmd.enabled }
-        "update-item" { Update-MenuItem $cmd.index $cmd.title $cmd.enabled }
+        "add-item"    { Add-MenuItem $cmd.index $cmd.title $cmd.enabled $cmd.checked }
+        "update-item" { Update-MenuItem $cmd.index $cmd.title $cmd.enabled $cmd.checked }
         "set-tooltip" { Set-Tooltip $cmd.text }
         "ready"       { Write-Event @{ type = "ready" } }
         "kill"        {

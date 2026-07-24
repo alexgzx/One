@@ -83,10 +83,27 @@ jobs:
               console.log('✅ Generated icon.ico (' + sizes.join('/') + ')');
             })();
           "
-          # 校验
+          # 验证
           ls -la cli/src/cli/tray/icon.*
           test -s cli/src/cli/tray/icon.png && echo "✅ icon.png ok"
           test -s cli/src/cli/tray/icon.ico && echo "✅ icon.ico ok"
+
+          # 生成 macOS 应用图标 (.icns)
+          echo "🎨 生成 macOS .icns 图标..."
+          mkdir -p /tmp/icon.iconset
+          for size in 16 32 64 128 256 512 1024; do
+            half=$((size / 2))
+            sharp_path=$(npm root -g)/sharp/cli.js
+            if [ ! -f "$sharp_path" ]; then
+              sharp_path=$(npm root)/sharp/cli.js
+            fi
+            node "$sharp_path" svg -i public/favicon.svg -o "/tmp/icon.iconset/icon_${size}x${size}.png" --resize $size $size --background transparent
+            if [ "$half" -gt 0 ]; then
+              node "$sharp_path" svg -i public/favicon.svg -o "/tmp/icon.iconset/icon_${half}x${half}@2x.png" --resize $size $size --background transparent
+            fi
+          done
+          iconutil -c icns /tmp/icon.iconset -o cli/src/cli/tray/icon.icns
+          ls -la cli/src/cli/tray/icon.icns && echo "✅ icon.icns ok"
 
       - name: Ensure SQLite runtime is bundled (sql.js wasm + better-sqlite3 native)
         shell: bash
@@ -492,9 +509,13 @@ jobs:
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>LSUIElement</key><false/>
             <key>NSHighResolutionCapable</key><true/>
+            <key>CFBundleIconFile</key><string>icon.icns</string>
           </dict>
           </plist>
           PLIST
+
+          # 复制应用图标到 Resources 目录
+          cp cli/src/cli/tray/icon.icns "$APP/Contents/Resources/"
 
       - name: Ad-hoc codesign .app
         run: |
