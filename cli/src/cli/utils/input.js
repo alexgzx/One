@@ -95,7 +95,7 @@ async function selectMenu(title, items, defaultIndex = 0, subtitle = "", headerC
     let isActive = true;
 
     primeRawOnce();
-    if (!process.stdin.isTTY) { resolve(-1); return; }
+    if (!process.stdin.isTTY) { resolve(defaultIndex); return; }
 
     const renderMenu = () => {
       if (!isActive) return;

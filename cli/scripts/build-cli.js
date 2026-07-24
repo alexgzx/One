@@ -81,7 +81,7 @@ function copyRecursive(src, dest) {
   }
 }
 
-console.log("📦 Building 9Router CLI package with Next.js...\n");
+console.log("📦 Building One CLI package with Next.js...\n");
 
 fs.mkdirSync(buildHomeDir, { recursive: true });
 fs.mkdirSync(path.join(buildHomeDir, "AppData", "Roaming"), { recursive: true });
@@ -98,6 +98,29 @@ if (appPkg.version !== cliPkg.version) {
   console.log(`✅ Version synced: ${cliPkg.version}\n`);
 } else {
   console.log(`✅ Version already synced: ${cliPkg.version}\n`);
+}
+
+// Step 0b: Ensure better-sqlite3 is available during Next.js build so betterSqliteAdapter.js
+// can be properly bundled. The native module will be stripped from the final bundle
+// and installed at runtime in ~/.One/runtime.
+console.log("0️⃣ b Ensuring better-sqlite3 for build...");
+const betterSqliteSrc = [
+  path.join(appDir, "node_modules", "better-sqlite3"),
+  path.join(rootDir, "node_modules", "better-sqlite3"),
+].find(p => fs.existsSync(p));
+if (!betterSqliteSrc) {
+  console.warn("⚠️  better-sqlite3 not found locally — attempting npm install...");
+  try {
+    execSync("npm install better-sqlite3 --no-audit --no-fund --prefer-online", {
+      stdio: "inherit",
+      cwd: appDir,
+    });
+    console.log("✅ better-sqlite3 installed\n");
+  } catch (e) {
+    console.warn("⚠️  better-sqlite3 install failed — build will proceed but adapter may not be bundled\n");
+  }
+} else {
+  console.log("✅ better-sqlite3 already available\n");
 }
 
 // Step 1: Build app with Next.js (workspace tracing root → traced node_modules in standalone).
@@ -194,7 +217,7 @@ if (fs.existsSync(customServerSrc)) {
 }
 
 // Step 3b: Ensure sql.js (pure JS fallback) bundled in app/cli/app/node_modules.
-// Strip better-sqlite3 (native) — it lives in ~/.9router/runtime to avoid
+// Strip better-sqlite3 (native) — it lives in ~/.One/runtime to avoid
 // Windows EBUSY during global CLI updates. node:sqlite (Node ≥22.5) is also
 // available as a no-install middle tier.
 console.log("3️⃣ b Configuring SQLite drivers...");
@@ -221,7 +244,7 @@ ensureModuleInBundle("sql.js");
 const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
 if (fs.existsSync(betterDir)) {
   fs.rmSync(betterDir, { recursive: true, force: true });
-  console.log("✅ Stripped better-sqlite3 (lives in ~/.9router/runtime)");
+  console.log("✅ Stripped better-sqlite3 (lives in ~/.One/runtime)");
 }
 console.log("");
 

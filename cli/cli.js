@@ -514,6 +514,14 @@ async function showInterfaceMenu(latestVersion) {
   const { clearScreen } = require("./src/cli/utils/display");
   const { getEndpoint } = require("./src/cli/utils/endpoint");
 
+  const isCI = process.env.CI === "true" || 
+               process.env.GITHUB_ACTIONS === "true" || 
+               process.env.CONTINUOUS_INTEGRATION === "true";
+
+  if (!process.stdin.isTTY || isCI) {
+    return "hide";
+  }
+
   clearScreen();
 
   const displayHost = getDisplayHost();
