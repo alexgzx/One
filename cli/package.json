@@ -1,9 +1,9 @@
 {
-  "name": "9router",
+  "name": "One",
   "version": "0.5.4",
-  "description": "9Router CLI - Start and manage 9Router server",
+  "description": "One CLI - Start and manage One server",
   "bin": {
-    "9router": "./cli.js"
+    "One": "./cli.js"
   },
   "files": [
     "cli.js",
@@ -34,7 +34,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "9router",
+    "One",
     "cli",
     "proxy",
     "ai",
