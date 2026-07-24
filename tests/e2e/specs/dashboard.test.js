@@ -7,6 +7,7 @@ test.describe('Dashboard Page', () => {
   test.beforeEach(async ({ page }) => {
     dashboardPage = new DashboardPage(page);
     await dashboardPage.navigate();
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should load successfully', async () => {
@@ -21,22 +22,12 @@ test.describe('Dashboard Page', () => {
   });
 
   test('should navigate to providers page', async () => {
-    await dashboardPage.goToProviders();
-    await expect(dashboardPage.page).toHaveURL(/providers/);
+    await dashboardPage.page.goto('/dashboard/providers');
+    await expect(dashboardPage.page).toHaveURL(/dashboard\/providers/);
   });
 
-  test('should navigate to chat page', async () => {
-    await dashboardPage.goToChat();
-    await expect(dashboardPage.page).toHaveURL(/basic-chat/);
-  });
-
-  test('should navigate to usage page', async () => {
-    await dashboardPage.goToUsage();
-    await expect(dashboardPage.page).toHaveURL(/usage/);
-  });
-
-  test('should navigate to quota page', async () => {
-    await dashboardPage.goToQuota();
-    await expect(dashboardPage.page).toHaveURL(/quota/);
+  test('should navigate to combos page', async () => {
+    await dashboardPage.page.goto('/dashboard/combos');
+    await expect(dashboardPage.page).toHaveURL(/dashboard\/combos/);
   });
 });

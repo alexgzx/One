@@ -1,10 +1,10 @@
 export class ChatPage {
   constructor(page) {
     this.page = page;
-    this.messageInput = page.locator('textarea');
-    this.sendButton = page.getByRole('button', { name: 'Send' });
-    this.chatMessages = page.locator('[data-testid="chat-message"]');
-    this.modelSelector = page.locator('[data-testid="model-selector"]');
+    this.messageInput = page.locator('textarea[placeholder="Message AI"]');
+    this.sendButton = page.locator('button:has(span.material-symbols-outlined:has-text("arrow_upward"))');
+    this.chatMessages = page.locator('.flex.w-full');
+    this.modelSelector = page.locator('button.flex.items-center.gap-3.rounded-2xl.border');
     this.clearButton = page.getByRole('button', { name: 'Clear' });
   }
 

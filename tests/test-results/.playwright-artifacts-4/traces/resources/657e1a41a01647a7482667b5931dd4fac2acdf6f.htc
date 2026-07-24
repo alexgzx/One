@@ -1,0 +1,67 @@
+2:I["(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"SegmentViewNode"]
+4:"$Sreact.fragment"
+17:I["(app-pages-browser)/./src/shared/components/ThemeProvider.js",["app/(dashboard)/layout","static/chunks/app/(dashboard)/layout.js"],"ThemeProvider"]
+19:I["(app-pages-browser)/./src/i18n/RuntimeI18nProvider.js",["app/layout","static/chunks/app/layout.js"],"RuntimeI18nProvider"]
+1b:I["(app-pages-browser)/./node_modules/next/dist/client/components/layout-router.js",["app-pages-internals","static/chunks/app-pages-internals.js"],""]
+1d:I["(app-pages-browser)/./node_modules/next/dist/client/components/render-from-template-context.js",["app-pages-internals","static/chunks/app-pages-internals.js"],""]
+3c:I["(app-pages-browser)/./src/shared/components/layouts/DashboardLayout.js",["app/(dashboard)/layout","static/chunks/app/(dashboard)/layout.js"],"default"]
+57:I["(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"ClientPageRoot"]
+58:I["(app-pages-browser)/./src/app/(dashboard)/dashboard/providers/page.js",["app/(dashboard)/dashboard/providers/page","static/chunks/app/(dashboard)/dashboard/providers/page.js"],"default"]
+5f:I["(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"OutletBoundary"]
+61:"$Sreact.suspense"
+6f:I["(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"ViewportBoundary"]
+79:I["(app-pages-browser)/./node_modules/next/dist/lib/framework/boundary-components.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"MetadataBoundary"]
+:HL["/_next/static/css/app/layout.css?v=1784858843197","style"]
+:HL["/_next/static/css/app/(dashboard)/layout.css?v=1784858843197","style"]
+:HL["/_next/static/css/app/(dashboard)/dashboard/providers/page.css?v=1784858843197","style"]
+6:D"$10"
+6:D"$7"
+6:D"$12"
+1f:D"$21"
+1f:D"$20"
+1f:D"$23"
+1f:D"$22"
+1f:D"$24"
+1f:[["$","title",null,{"children":"404: This page could not be found."},"$22","$25",1],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}},"$22","$28",1],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404},"$22","$29",1],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."},"$22","$2b",1]},"$22","$2a",1]]},"$22","$27",1]},"$22","$26",1]]
+6:["$","html",null,{"lang":"zh-CN","suppressHydrationWarning":true,"children":[["$","head",null,{"children":["$","script",null,{"dangerouslySetInnerHTML":{"__html":"if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){document.documentElement.classList.add('fonts-loaded')})}else{document.documentElement.classList.add('fonts-loaded')}"}},"$7","$14",1]},"$7","$13",1],["$","body",null,{"className":"__variable_f367f3 font-sans antialiased","children":["$","$L17",null,{"children":["$","$L19",null,{"children":["$","$L1b",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L1d",null,{},null,"$1c",1],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":["$","$L2","c-not-found",{"type":"not-found","pagePath":"__next_builtin__not-found.js","children":["$1f",[]]},null,"$1e",0],"forbidden":"$undefined","unauthorized":"$undefined","segmentViewBoundaries":[["$","$L2",null,{"type":"boundary:not-found","pagePath":"__next_builtin__not-found.js@boundary"},null,"$2c",1],"$undefined","$undefined",["$","$L2",null,{"type":"boundary:global-error","pagePath":"__next_builtin__global-error.js"},null,"$2d",1]]},null,"$1a",1]},"$7","$18",1]},"$7","$16",1]},"$7","$15",1]]},"$7","$11",1]
+31:D"$39"
+31:D"$32"
+31:D"$3b"
+40:D"$42"
+40:D"$41"
+40:D"$44"
+40:D"$43"
+40:D"$45"
+40:[["$","title",null,{"children":"404: This page could not be found."},"$43","$46",1],["$","div",null,{"style":"$1f:1:props:style","children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}},"$43","$49",1],["$","h1",null,{"className":"next-error-h1","style":"$1f:1:props:children:props:children:1:props:style","children":404},"$43","$4a",1],["$","div",null,{"style":"$1f:1:props:children:props:children:2:props:style","children":["$","h2",null,{"style":"$1f:1:props:children:props:children:2:props:children:props:style","children":"This page could not be found."},"$43","$4c",1]},"$43","$4b",1]]},"$43","$48",1]},"$43","$47",1]]
+31:["$","$L3c",null,{"children":["$","$L1b",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L1d",null,{},null,"$3e",1],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":["$","$L2","c-not-found",{"type":"not-found","pagePath":"__next_builtin__not-found.js","children":["$40",[]]},null,"$3f",0],"forbidden":"$undefined","unauthorized":"$undefined","segmentViewBoundaries":[["$","$L2",null,{"type":"boundary:not-found","pagePath":"__next_builtin__not-found.js@boundary"},null,"$4d",1],"$undefined","$undefined","$undefined"]},null,"$3d",1]},"$32","$3a",1]
+5a:D"$5c"
+5a:D"$5b"
+5a:D"$5e"
+5a:["$","$L5f",null,{"children":["$","$61",null,{"name":"Next.MetadataOutlet","children":"$@62"},"$5b","$60",1]},"$5b","$5d",1]
+65:D"$68"
+65:D"$66"
+65:D"$69"
+65:null
+6a:D"$6c"
+6a:D"$6b"
+6a:D"$6e"
+70:D"$72"
+70:D"$71"
+6a:["$","$L6f","e7535144v",{"children":"$L70"},"$6b","$6d",1]
+73:D"$75"
+73:D"$74"
+73:D"$77"
+7b:D"$7d"
+7b:D"$7c"
+73:["$","div","e7535144m",{"hidden":true,"children":["$","$L79",null,{"children":["$","$61",null,{"name":"Next.Metadata","children":"$L7b"},"$74","$7a",1]},"$74","$78",1]},"$74","$76",1]
+0:{"f":[[["",{"children":["(dashboard)",{"children":["dashboard",{"children":["providers",{"children":["__PAGE__",{}]}]}]}]},"$undefined","$undefined",16],[["$","$L2","layout",{"type":"layout","pagePath":"layout.js","children":["$","$4","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/app/layout.css?v=1784858843197","precedence":"next_static/css/app/layout.css","crossOrigin":"$undefined","nonce":"$undefined"},null,"$5",0]],"$6"]},null,"$3",1]},null,"$1",0],{"children":[["$","$L2","layout",{"type":"layout","pagePath":"(dashboard)/layout.js","children":["$","$4","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/app/(dashboard)/layout.css?v=1784858843197","precedence":"next_static/css/app/(dashboard)/layout.css","crossOrigin":"$undefined","nonce":"$undefined"},null,"$30",0]],"$31"]},null,"$2f",1]},null,"$2e",0],{"children":[["$","$4","c",{"children":[null,["$","$L1b",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L1d",null,{},null,"$50",1],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined","segmentViewBoundaries":["$undefined","$undefined","$undefined","$undefined"]},null,"$4f",1]]},null,"$4e",0],{"children":[["$","$4","c",{"children":[null,["$","$L1b",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L1d",null,{},null,"$53",1],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined","segmentViewBoundaries":["$undefined","$undefined","$undefined","$undefined"]},null,"$52",1]]},null,"$51",0],{"children":[["$","$4","c",{"children":[["$","$L2","c-page",{"type":"page","pagePath":"(dashboard)/dashboard/providers/page.js","children":["$","$L57",null,{"Component":"$58","serverProvidedParams":{"searchParams":{},"params":{},"promises":null}},null,"$56",1]},null,"$55",1],[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/app/(dashboard)/dashboard/providers/page.css?v=1784858843197","precedence":"next_static/css/app/(dashboard)/dashboard/providers/page.css","crossOrigin":"$undefined","nonce":"$undefined"},null,"$59",0]],"$5a"]},null,"$54",0],{},null,false,null]},null,false,"$@63"]},null,false,"$@63"]},null,false,null]},null,false,null],["$","$4","h",{"children":["$65","$6a","$73"]},null,"$64",0],false]],"q":"","i":true,"S":false,"h":null,"b":"development"}
+7e:[]
+63:D"$7f"
+63:"$W7e"
+70:D"$80"
+70:[["$","meta","0",{"charSet":"utf-8"},"$5b","$81",0],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"},"$5b","$82",0],["$","meta","2",{"name":"theme-color","content":"#0a0a0a"},"$5b","$83",0]]
+8c:I["(app-pages-browser)/./node_modules/next/dist/lib/metadata/generate/icon-mark.js",["app-pages-internals","static/chunks/app-pages-internals.js"],"IconMark"]
+62:D"$84"
+62:null
+7b:D"$85"
+7b:[["$","title","0",{"children":"One - AI Infrastructure Management"},"$5b","$86",0],["$","meta","1",{"name":"description","content":"One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly."},"$5b","$87",0],["$","link","2",{"rel":"manifest","href":"/manifest.webmanifest","crossOrigin":"$undefined"},"$5b","$88",0],["$","link","3",{"rel":"icon","href":"/favicon.ico?603d046c9a6fdfbb","type":"image/x-icon","sizes":"16x16"},"$5b","$89",0],["$","link","4",{"rel":"icon","href":"/favicon.svg"},"$5b","$8a",0],["$","$L8c","5",{},"$5b","$8b",0]]

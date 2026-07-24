@@ -1,12 +1,12 @@
 export class DashboardPage {
   constructor(page) {
     this.page = page;
-    this.sidebar = page.locator('nav');
-    this.dashboardLink = page.getByRole('link', { name: 'Dashboard' });
-    this.providersLink = page.getByRole('link', { name: 'Providers' });
-    this.chatLink = page.getByRole('link', { name: 'Chat' });
-    this.usageLink = page.getByRole('link', { name: 'Usage' });
-    this.quotaLink = page.getByRole('link', { name: 'Quota' });
+    this.sidebar = page.locator('aside nav').first();
+    this.dashboardLink = page.getByRole('link', { name: '端点' });
+    this.providersLink = page.getByRole('link', { name: '提供商' });
+    this.chatLink = page.getByRole('link', { name: '组合' });
+    this.usageLink = page.getByRole('link', { name: '使用情况' });
+    this.quotaLink = page.getByRole('link', { name: '配额跟踪器' });
     this.headerTitle = page.locator('header h1');
   }
 

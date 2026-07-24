@@ -3,7 +3,7 @@ export class ProvidersPage {
     this.page = page;
     this.providerCards = page.locator('[data-testid="provider-card"]');
     this.searchInput = page.locator('input[type="search"]');
-    this.addProviderButton = page.getByRole('button', { name: 'Add Provider' });
+    this.addProviderButton = page.getByRole('button', { name: '添加提供商' });
     this.freeTierSection = page.locator('[data-testid="free-tier-section"]');
     this.apiKeySection = page.locator('[data-testid="apikey-section"]');
     this.oauthSection = page.locator('[data-testid="oauth-section"]');
