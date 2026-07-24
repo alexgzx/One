@@ -1,4 +1,4 @@
-﻿name: Release Desktop Build
+name: Release Desktop Build
 
 on:
   push:
@@ -88,22 +88,7 @@ jobs:
           test -s cli/src/cli/tray/icon.png && echo "✅ icon.png ok"
           test -s cli/src/cli/tray/icon.ico && echo "✅ icon.ico ok"
 
-          # 生成 macOS 应用图标 (.icns)
-          echo "🎨 生成 macOS .icns 图标..."
-          mkdir -p /tmp/icon.iconset
-          for size in 16 32 64 128 256 512 1024; do
-            half=$((size / 2))
-            sharp_path=$(npm root -g)/sharp/cli.js
-            if [ ! -f "$sharp_path" ]; then
-              sharp_path=$(npm root)/sharp/cli.js
-            fi
-            node "$sharp_path" svg -i public/favicon.svg -o "/tmp/icon.iconset/icon_${size}x${size}.png" --resize $size $size --background transparent
-            if [ "$half" -gt 0 ]; then
-              node "$sharp_path" svg -i public/favicon.svg -o "/tmp/icon.iconset/icon_${half}x${half}@2x.png" --resize $size $size --background transparent
-            fi
-          done
-          iconutil -c icns /tmp/icon.iconset -o cli/src/cli/tray/icon.icns
-          ls -la cli/src/cli/tray/icon.icns && echo "✅ icon.icns ok"
+          
 
       - name: Ensure SQLite runtime is bundled (sql.js wasm + better-sqlite3 native)
         shell: bash
@@ -467,6 +452,38 @@ jobs:
             --output "${{ env.APP_NAME }}" \
             --compress GZip
 
+      - name: Generate macOS icon (.icns)
+        run: |
+          echo "🎨 生成 macOS .icns 图标..."
+          npm install --no-save --no-audit --no-fund sharp@^0.33 2>&1 | tail -3
+          node -e "
+            const sharp = require('sharp');
+            const fs = require('fs');
+            const path = require('path');
+            const svg = fs.readFileSync('public/favicon.svg');
+            const iconsetDir = '/tmp/icon.iconset';
+
+            (async () => {
+              fs.mkdirSync(iconsetDir, { recursive: true });
+              const sizes = [16, 32, 64, 128, 256, 512, 1024];
+              for (const size of sizes) {
+                const half = size / 2;
+                await sharp(svg, { density: 384 })
+                  .resize(size, size, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                  .png()
+                  .toFile(path.join(iconsetDir, \`icon_\${size}x\${size}.png\`));
+                if (half > 0) {
+                  await sharp(svg, { density: 384 })
+                    .resize(size, size, { fit: 'contain', background: { r:0, g:0, b:0, alpha:0 } })
+                    .png()
+                    .toFile(path.join(iconsetDir, \`icon_\${half}x\${half}@2x.png\`));
+                }
+              }
+            })();
+          "
+          iconutil -c icns /tmp/icon.iconset -o /tmp/icon.icns
+          ls -la /tmp/icon.icns && echo "✅ icon.icns generated"
+
       - name: Assemble .app bundle
         run: |
           APP="${{ env.APP_NAME }}.app"
@@ -515,7 +532,7 @@ jobs:
           PLIST
 
           # 复制应用图标到 Resources 目录
-          cp cli/src/cli/tray/icon.icns "$APP/Contents/Resources/"
+          cp /tmp/icon.icns "$APP/Contents/Resources/"
 
       - name: Ad-hoc codesign .app
         run: |
