@@ -1376,7 +1376,7 @@ jobs:
             console.log('✅ Generated PNGs, icon.png, icon.ico');
           })().catch(e => { console.error(e); process.exit(1); });
           JSEOF
-          TAURI_ICONS="$tauriIcons" node /tmp/gen-tauri-icons.js
+          NODE_PATH="$(pwd)/node_modules" TAURI_ICONS="$tauriIcons" node /tmp/gen-tauri-icons.js
           if command -v iconutil &> /dev/null; then
             iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" || { echo "❌ iconutil failed"; ls -la /tmp/tauri-iconset/; exit 1; }
             echo "✅ icon.icns generated"
