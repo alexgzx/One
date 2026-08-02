@@ -1323,22 +1323,69 @@ jobs:
             echo "Generating default icon..."
             python3 scripts/generate-icons.py .
           fi
+          npm install --no-save --no-audit --no-fund sharp@^0.33 2>&1 | tail -3
           tauriIcons="src-tauri/icons"
           mkdir -p "$tauriIcons"
-          for size in 32 128; do
-            sips -z $size $size assemblyai-color.png --out "$tauriIcons/${size}x${size}.png" 2>/dev/null || cp assemblyai-color.png "$tauriIcons/${size}x${size}.png"
-          done
-          cp "$tauriIcons/32x32.png" "$tauriIcons/icon.png"
-          # 生成 icns
+          # Write icon generation script to avoid bash $ expansion issues
+          cat > /tmp/gen-tauri-icons.js << 'JSEOF'
+          const sharp = require('sharp');
+          const fs = require('fs');
+          const path = require('path');
+          const png = fs.readFileSync('assemblyai-color.png');
+          const outDir = process.env.TAURI_ICONS;
+          (async () => {
+            const sizes = [16, 32, 48, 64, 128, 256, 512, 1024];
+            for (const size of sizes) {
+              await sharp(png).resize(size, size, { fit: 'contain' }).png()
+                .toFile(path.join(outDir, size + 'x' + size + '.png'));
+            }
+            fs.copyFileSync(path.join(outDir, '512x512.png'), path.join(outDir, 'icon.png'));
+            const iconset = '/tmp/tauri-iconset';
+            fs.rmSync(iconset, { recursive: true, force: true });
+            fs.mkdirSync(iconset, { recursive: true });
+            const iconSpecs = [
+              [16, 'icon_16x16.png'], [32, 'icon_16x16@2x.png'],
+              [32, 'icon_32x32.png'], [64, 'icon_32x32@2x.png'],
+              [128, 'icon_128x128.png'], [256, 'icon_128x128@2x.png'],
+              [256, 'icon_256x256.png'], [512, 'icon_256x256@2x.png'],
+              [512, 'icon_512x512.png'], [1024, 'icon_512x512@2x.png']
+            ];
+            for (const [sz, name] of iconSpecs) {
+              await sharp(png).resize(sz, sz, { fit: 'contain' }).png()
+                .toFile(path.join(iconset, name));
+            }
+            const icoSizes = [16, 32, 48, 64, 128, 256];
+            const icoBufs = [];
+            for (const sz of icoSizes) {
+              icoBufs.push({ sz, buf: await sharp(png).resize(sz, sz, { fit: 'contain' }).png().toBuffer() });
+            }
+            let hdr = Buffer.alloc(6);
+            hdr.writeUInt16LE(0, 0); hdr.writeUInt16LE(1, 2); hdr.writeUInt16LE(icoBufs.length, 4);
+            let off = 6 + 16 * icoBufs.length;
+            const parts = [hdr];
+            for (const { sz, buf } of icoBufs) {
+              const e = Buffer.alloc(16);
+              e.writeUInt8(sz >= 256 ? 0 : sz, 0); e.writeUInt8(sz >= 256 ? 0 : sz, 1);
+              e.writeUInt8(0, 2); e.writeUInt8(0, 3);
+              e.writeUInt16LE(1, 4); e.writeUInt16LE(32, 6);
+              e.writeUInt32LE(buf.length, 8); e.writeUInt32LE(off, 12);
+              parts.push(e); off += buf.length;
+            }
+            for (const { buf } of icoBufs) parts.push(buf);
+            fs.writeFileSync(path.join(outDir, 'icon.ico'), Buffer.concat(parts));
+            console.log('✅ Generated PNGs, icon.png, icon.ico');
+          })().catch(e => { console.error(e); process.exit(1); });
+          JSEOF
+          TAURI_ICONS="$tauriIcons" node /tmp/gen-tauri-icons.js
           if command -v iconutil &> /dev/null; then
-            mkdir -p /tmp/tauri-iconset
-            cp "$tauriIcons/32x32.png" /tmp/tauri-iconset/icon_16x16@2x.png
-            cp "$tauriIcons/128x128.png" /tmp/tauri-iconset/icon_128x128.png
-            cp assemblyai-color.png /tmp/tauri-iconset/icon_256x256@2x.png
-            cp assemblyai-color.png /tmp/tauri-iconset/icon_512x512.png
-            iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" 2>/dev/null || true
-            rm -rf /tmp/tauri-iconset
+            iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" || { echo "❌ iconutil failed"; ls -la /tmp/tauri-iconset/; exit 1; }
+            echo "✅ icon.icns generated"
+            ls -la "$tauriIcons/icon.icns"
+          else
+            echo "⚠️ iconutil not found on this runner"
           fi
+          rm -rf /tmp/tauri-iconset /tmp/gen-tauri-icons.js
+          ls -la "$tauriIcons/"
           echo "✅ Tauri icons generated"
 
       - name: Prepare Tauri resources
