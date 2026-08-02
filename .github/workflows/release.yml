@@ -1319,75 +1319,69 @@ jobs:
 
       - name: Generate icons for Tauri
         run: |
+          set -e
           if [ ! -f "assemblyai-color.png" ]; then
             echo "Generating default icon..."
             python3 scripts/generate-icons.py .
           fi
-          # Install Pillow for reliable PNG generation (compatible with iconutil)
-          python3 -m pip install --no-cache-dir Pillow 2>&1 | tail -3
           tauriIcons="src-tauri/icons"
           mkdir -p "$tauriIcons"
-          # Use Python/Pillow to generate all PNG sizes (most compatible with iconutil)
-          TAURI_ICONS="$tauriIcons" python3 << 'PYEOF'
-          import os
-          from PIL import Image
-          
-          src = "assemblyai-color.png"
-          out_dir = os.environ.get("TAURI_ICONS", "src-tauri/icons")
-          img = Image.open(src).convert("RGBA")
-          
-          # Standard icon sizes for Tauri
-          sizes = [16, 32, 48, 64, 128, 256, 512, 1024]
-          for size in sizes:
-            resized = img.resize((size, size), Image.LANCZOS)
-            resized.save(os.path.join(out_dir, f"{size}x{size}.png"), "PNG")
-          
-          # icon.png (512px)
-          img512 = img.resize((512, 512), Image.LANCZOS)
-          img512.save(os.path.join(out_dir, "icon.png"), "PNG")
-          
-          # Build iconset for iconutil
-          iconset = "/tmp/tauri-iconset"
-          os.system(f"rm -rf {iconset}")
-          os.makedirs(iconset, exist_ok=True)
-          
-          icon_specs = [
-              (16, "icon_16x16.png"), (32, "icon_16x16@2x.png"),
-              (32, "icon_32x32.png"), (64, "icon_32x32@2x.png"),
-              (128, "icon_128x128.png"), (256, "icon_128x128@2x.png"),
-              (256, "icon_256x256.png"), (512, "icon_256x256@2x.png"),
-              (512, "icon_512x512.png"), (1024, "icon_512x512@2x.png")
-          ]
-          for size, name in icon_specs:
-            resized = img.resize((size, size), Image.LANCZOS)
-            resized.save(os.path.join(iconset, name), "PNG")
-          
-          # Build ICO file (Pillow supports ICO natively)
-          ico_sizes = [16, 32, 48, 64, 128, 256]
-          ico_images = []
-          for size in ico_sizes:
-            resized = img.resize((size, size), Image.LANCZOS)
-            ico_images.append(resized)
-          
-          ico_images[0].save(
-              os.path.join(out_dir, "icon.ico"),
-              format="ICO",
-              sizes=[(s, s) for s in ico_sizes],
-              append_images=ico_images[1:]
-          )
-          
-          print("✅ Generated PNGs, icon.png, icon.ico")
+          ICONSET="/tmp/tauri-iconset"
+          ICO_TMP="/tmp/tauri-ico"
+          rm -rf "$ICONSET" "$ICO_TMP"
+          mkdir -p "$ICONSET" "$ICO_TMP"
+          SRC="assemblyai-color.png"
+          echo "=== Generating icons from $SRC ==="
+          # Generate PNGs for tauri.conf.json (used by Tauri bundler)
+          for sz in 16 32 48 64 128 256 512 1024; do
+            sips -z $sz $sz "$SRC" --out "$tauriIcons/${sz}x${sz}.png" >/dev/null
+          done
+          cp "$tauriIcons/512x512.png" "$tauriIcons/icon.png"
+          # Generate complete iconset for iconutil (10 required sizes)
+          sips -z 16 16 "$SRC" --out "$ICONSET/icon_16x16.png" >/dev/null
+          sips -z 32 32 "$SRC" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
+          sips -z 32 32 "$SRC" --out "$ICONSET/icon_32x32.png" >/dev/null
+          sips -z 64 64 "$SRC" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
+          sips -z 128 128 "$SRC" --out "$ICONSET/icon_128x128.png" >/dev/null
+          sips -z 256 256 "$SRC" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+          sips -z 256 256 "$SRC" --out "$ICONSET/icon_256x256.png" >/dev/null
+          sips -z 512 512 "$SRC" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+          sips -z 512 512 "$SRC" --out "$ICONSET/icon_512x512.png" >/dev/null
+          sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
+          echo "Iconset files:" && ls -la "$ICONSET/"
+          # Build .icns with iconutil
+          iconutil -c icns "$ICONSET" -o "$tauriIcons/icon.icns"
+          echo "✅ icon.icns generated ($(du -h "$tauriIcons/icon.icns" | cut -f1))"
+          # Build .ico using Python stdlib (no pip/npm needed)
+          ICO_SIZES="16 32 48 64 128 256"
+          for sz in $ICO_SIZES; do
+            sips -z $sz $sz "$SRC" --out "$ICO_TMP/${sz}.png" >/dev/null
+          done
+          ICO_TMP="$ICO_TMP" TAURI_ICONS="$tauriIcons" python3 << 'PYEOF'
+          import struct, os
+          ico_dir = os.environ.get("ICO_TMP", "/tmp/tauri-ico")
+          out_path = os.environ.get("TAURI_ICONS", "src-tauri/icons") + "/icon.ico"
+          sizes = [16, 32, 48, 64, 128, 256]
+          pngs = []
+          for sz in sizes:
+              with open(f"{ico_dir}/{sz}.png", "rb") as f:
+                  pngs.append(f.read())
+          hdr = struct.pack("<HHH", 0, 1, len(sizes))
+          entries = b""
+          offset = 6 + 16 * len(sizes)
+          for i, sz in enumerate(sizes):
+              w = 0 if sz >= 256 else sz
+              h = 0 if sz >= 256 else sz
+              entries += struct.pack("<BBBBHHII", w, h, 0, 0, 1, 32, len(pngs[i]), offset)
+              offset += len(pngs[i])
+          with open(out_path, "wb") as f:
+              f.write(hdr + entries + b"".join(pngs))
+          print(f"✅ icon.ico generated ({offset} bytes)")
           PYEOF
-          if command -v iconutil &> /dev/null; then
-            iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" || { echo "❌ iconutil failed"; ls -la /tmp/tauri-iconset/; exit 1; }
-            echo "✅ icon.icns generated"
-            ls -la "$tauriIcons/icon.icns"
-          else
-            echo "⚠️ iconutil not found on this runner"
-          fi
-          rm -rf /tmp/tauri-iconset
+          rm -rf "$ICONSET" "$ICO_TMP"
+          echo "=== Final Tauri icons ==="
           ls -la "$tauriIcons/"
-          echo "✅ Tauri icons generated"
+          echo "✅ All Tauri icons generated successfully"
 
       - name: Prepare Tauri resources
         run: |
