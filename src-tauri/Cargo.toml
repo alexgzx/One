@@ -1,0 +1,43 @@
+[package]
+name = "one-desktop"
+version = "0.5.4"
+description = "One Desktop App - Tauri Edition"
+authors = ["One"]
+edition = "2021"
+
+[lib]
+name = "one_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [
+    "shell-open",
+    "shell-scope-app",
+    "shell-scope-shell",
+    "os-all",
+    "path-all",
+    "dialog-all",
+    "fs-all",
+    "window-all",
+    "menu-all",
+    "tray-icon",
+    "process-all",
+    "clipboard-all",
+    "global-shortcut-all",
+    "app-all",
+    "event-all",
+    "url-all",
+    "core-all",
+    "state-all"
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+
+[features]
+# 默认特性
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

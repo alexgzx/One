@@ -1,0 +1,11 @@
+{
+  "name": "one-tauri",
+  "version": "0.5.4",
+  "description": "One Desktop App - Tauri Edition",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.0"
+  }
+}

@@ -723,24 +723,351 @@ jobs:
           if-no-files-found: error
 
   # =====================================================================
-  # 4. 创建/更新 GitHub Release，附带两份产物
+  # 5. Windows x64 Electron 构建
+  # =====================================================================
+  build-windows-electron:
+    name: Build Windows (x64) Electron
+    needs: build-cli
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: .
+
+      - name: Extract CLI bundle
+        shell: bash
+        run: tar -xzf cli-bundle.tar.gz
+
+      - name: Read app version
+        id: ver
+        shell: pwsh
+        run: |
+          $pkg = Get-Content cli/package.json | ConvertFrom-Json
+          "version=$($pkg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download portable Node.js
+        shell: pwsh
+        run: |
+          $ver = "${{ env.PORTABLE_NODE_VERSION }}"
+          $url = "https://nodejs.org/dist/v$ver/node-v$ver-win-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath .
+          Rename-Item "node-v$ver-win-x64" "node-portable"
+
+      - name: Install Electron dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: electron
+
+      - name: Prepare Electron resources
+        shell: pwsh
+        run: |
+          $resDir = "electron/resources"
+          New-Item -ItemType Directory -Force -Path "$resDir/cli" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$resDir/node" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$resDir/build" | Out-Null
+
+          Copy-Item cli/cli.js "$resDir/cli/"
+          Copy-Item cli/package.json "$resDir/cli/"
+          if (Test-Path cli/LICENSE) { Copy-Item cli/LICENSE "$resDir/cli/" }
+          if (Test-Path cli/README.md) { Copy-Item cli/README.md "$resDir/cli/" }
+          Copy-Item -Recurse cli/src "$resDir/cli/src"
+          Copy-Item -Recurse cli/hooks "$resDir/cli/hooks"
+          Copy-Item -Recurse cli/app "$resDir/cli/app"
+          if (Test-Path cli/node_modules) {
+            Copy-Item -Recurse cli/node_modules "$resDir/cli/node_modules"
+          }
+          Copy-Item -Recurse "node-portable/*" "$resDir/node/"
+          Copy-Item build/icon.ico "$resDir/build/"
+          Copy-Item build/icon.png "$resDir/build/"
+          Copy-Item build/icon-*.png "$resDir/build/" -ErrorAction SilentlyContinue
+
+      - name: Build Electron MSI
+        shell: pwsh
+        run: |
+          npm run build:win
+        working-directory: electron
+
+      - name: Rename artifact
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $src = "electron/dist/${{ env.APP_NAME }} Setup $ver.exe"
+          $dst = "${{ env.APP_NAME }}-$ver-windows-x64-electron.exe"
+          if (Test-Path $src) { Move-Item $src $dst }
+          else {
+            $src2 = Get-ChildItem electron/dist/*.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($src2) { Move-Item $src2.FullName $dst }
+          }
+
+      - name: Upload Windows Electron artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-electron
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64-electron.exe"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 6. macOS arm64 Electron 构建
+  # =====================================================================
+  build-macos-electron:
+    name: Build macOS (arm64) Electron
+    needs: build-cli
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: .
+
+      - name: Extract CLI bundle
+        run: tar -xzf cli-bundle.tar.gz
+
+      - name: Read app version
+        id: ver
+        run: |
+          ver=$(node -e "console.log(require('./cli/package.json').version)")
+          echo "version=$ver" >> $GITHUB_OUTPUT
+
+      - name: Download portable Node.js
+        run: |
+          ver="${{ env.PORTABLE_NODE_VERSION }}"
+          curl -fsSLO "https://nodejs.org/dist/v$ver/node-v$ver-darwin-arm64.tar.gz"
+          tar -xzf "node-v$ver-darwin-arm64.tar.gz"
+          mv "node-v$ver-darwin-arm64" node-portable
+
+      - name: Install Electron dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: electron
+
+      - name: Prepare Electron resources
+        run: |
+          resDir="electron/resources"
+          mkdir -p "$resDir/cli" "$resDir/node" "$resDir/build"
+          cp cli/cli.js "$resDir/cli/"
+          cp cli/package.json "$resDir/cli/"
+          [ -f cli/LICENSE ] && cp cli/LICENSE "$resDir/cli/"
+          [ -f cli/README.md ] && cp cli/README.md "$resDir/cli/"
+          cp -R cli/src "$resDir/cli/src"
+          cp -R cli/hooks "$resDir/cli/hooks"
+          cp -R cli/app "$resDir/cli/app"
+          [ -d cli/node_modules ] && cp -R cli/node_modules "$resDir/cli/node_modules"
+          cp -R node-portable/* "$resDir/node/"
+          cp build/icon.png "$resDir/build/"
+          cp build/icon-*.png "$resDir/build/" 2>/dev/null || true
+
+      - name: Build Electron DMG
+        run: npm run build:mac
+        working-directory: electron
+
+      - name: Rename artifact
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          src="electron/dist/${{ env.APP_NAME }}-$ver-arm64.dmg"
+          dst="${{ env.APP_NAME }}-$ver-macos-arm64-electron.dmg"
+          if [ -f "$src" ]; then mv "$src" "$dst"; fi
+          src2="electron/dist/${{ env.APP_NAME }} $ver.dmg"
+          if [ -f "$src2" ]; then mv "$src2" "$dst"; fi
+
+      - name: Upload macOS Electron artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-electron
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-macos-arm64-electron.dmg"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 7. Windows x64 Tauri 构建
+  # =====================================================================
+  build-windows-tauri:
+    name: Build Windows (x64) Tauri
+    needs: build-cli
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: .
+
+      - name: Extract CLI bundle
+        shell: bash
+        run: tar -xzf cli-bundle.tar.gz
+
+      - name: Read app version
+        id: ver
+        shell: pwsh
+        run: |
+          $pkg = Get-Content cli/package.json | ConvertFrom-Json
+          "version=$($pkg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download portable Node.js
+        shell: pwsh
+        run: |
+          $ver = "${{ env.PORTABLE_NODE_VERSION }}"
+          $url = "https://nodejs.org/dist/v$ver/node-v$ver-win-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath .
+          Rename-Item "node-v$ver-win-x64" "node-portable"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        shell: pwsh
+        run: npm install -g @tauri-apps/cli@^1.5 2>$null
+
+      - name: Prepare Tauri resources
+        shell: pwsh
+        run: |
+          $resDir = "src-tauri/resources"
+          New-Item -ItemType Directory -Force -Path "$resDir/cli" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$resDir/node" | Out-Null
+
+          Copy-Item cli/cli.js "$resDir/cli/"
+          Copy-Item cli/package.json "$resDir/cli/"
+          if (Test-Path cli/LICENSE) { Copy-Item cli/LICENSE "$resDir/cli/" }
+          if (Test-Path cli/README.md) { Copy-Item cli/README.md "$resDir/cli/" }
+          Copy-Item -Recurse cli/src "$resDir/cli/src"
+          Copy-Item -Recurse cli/hooks "$resDir/cli/hooks"
+          Copy-Item -Recurse cli/app "$resDir/cli/app"
+          if (Test-Path cli/node_modules) {
+            Copy-Item -Recurse cli/node_modules "$resDir/cli/node_modules"
+          }
+          Copy-Item -Recurse "node-portable/*" "$resDir/node/"
+
+      - name: Build Tauri MSI
+        shell: pwsh
+        run: |
+          cd src-tauri
+          npm run tauri build -- --bundles msi
+
+      - name: Rename artifact
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $src = Get-ChildItem src-tauri/target/release/bundle/msi/*.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($src) {
+            $dst = "${{ env.APP_NAME }}-$ver-windows-x64-tauri.msi"
+            Move-Item $src.FullName $dst
+          }
+
+      - name: Upload Windows Tauri artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-tauri
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64-tauri.msi"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 8. macOS arm64 Tauri 构建
+  # =====================================================================
+  build-macos-tauri:
+    name: Build macOS (arm64) Tauri
+    needs: build-cli
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download CLI bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-bundle
+          path: .
+
+      - name: Extract CLI bundle
+        run: tar -xzf cli-bundle.tar.gz
+
+      - name: Read app version
+        id: ver
+        run: |
+          ver=$(node -e "console.log(require('./cli/package.json').version)")
+          echo "version=$ver" >> $GITHUB_OUTPUT
+
+      - name: Download portable Node.js
+        run: |
+          ver="${{ env.PORTABLE_NODE_VERSION }}"
+          curl -fsSLO "https://nodejs.org/dist/v$ver/node-v$ver-darwin-arm64.tar.gz"
+          tar -xzf "node-v$ver-darwin-arm64.tar.gz"
+          mv "node-v$ver-darwin-arm64" node-portable
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli@^1.5
+
+      - name: Prepare Tauri resources
+        run: |
+          resDir="src-tauri/resources"
+          mkdir -p "$resDir/cli" "$resDir/node"
+          cp cli/cli.js "$resDir/cli/"
+          cp cli/package.json "$resDir/cli/"
+          [ -f cli/LICENSE ] && cp cli/LICENSE "$resDir/cli/"
+          [ -f cli/README.md ] && cp cli/README.md "$resDir/cli/"
+          cp -R cli/src "$resDir/cli/src"
+          cp -R cli/hooks "$resDir/cli/hooks"
+          cp -R cli/app "$resDir/cli/app"
+          [ -d cli/node_modules ] && cp -R cli/node_modules "$resDir/cli/node_modules"
+          cp -R node-portable/* "$resDir/node/"
+
+      - name: Build Tauri DMG
+        run: |
+          cd src-tauri
+          npm run tauri build -- --bundles dmg
+
+      - name: Rename artifact
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          src=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" -print -quit)
+          if [ -n "$src" ]; then
+            dst="${{ env.APP_NAME }}-$ver-macos-arm64-tauri.dmg"
+            mv "$src" "$dst"
+          fi
+
+      - name: Upload macOS Tauri artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-tauri
+          path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-macos-arm64-tauri.dmg"
+          if-no-files-found: error
+
+  # =====================================================================
+  # 9. 创建/更新 GitHub Release，附带所有产物
   # =====================================================================
   release:
     name: Publish Release
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-windows-electron, build-macos-electron, build-windows-tauri, build-macos-tauri]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Download Windows artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-x64
-          path: dist
-
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-arm64
           path: dist
 
       - name: List artifacts
@@ -755,6 +1082,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            dist/*.zip
-            dist/*.msi
-            dist/*.dmg
+            dist/**/*.zip
+            dist/**/*.msi
+            dist/**/*.dmg
+            dist/**/*.exe
