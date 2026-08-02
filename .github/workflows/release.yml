@@ -782,7 +782,7 @@ jobs:
           }
           $buildDir = "build"
           New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
-          $sizes = @(16, 32, 48, 64, 128, 256, 512)
+          $sizes = @(16, 32, 48, 64, 128, 256)
           foreach($s in $sizes) {
             $bmp = New-Object System.Drawing.Bitmap($s, $s)
             $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -806,7 +806,7 @@ jobs:
             $size = $sizes[$i]
             $pngPath = "$buildDir/icon-$size.png"
             $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
-            $sizeByte = if($size -eq 256) { [Byte]0 } else { [Byte]$size }
+            $sizeByte = if($size -ge 256) { [Byte]0 } else { [Byte]$size }
             $bw.Write($sizeByte)
             $bw.Write($sizeByte)
             $bw.Write([Byte]0)
@@ -1065,6 +1065,7 @@ jobs:
           }
           Copy-Item "$tauriIcons/32x32.png" "$tauriIcons/icon.png" -Force
           # 生成 ICO
+          New-Item -ItemType Directory -Force -Path "build" | Out-Null
           $fs = New-Object System.IO.FileStream("$tauriIcons/icon.ico", [System.IO.FileMode]::Create)
           $bw = New-Object System.IO.BinaryWriter($fs)
           $allSizes = @(16, 32, 48, 64, 128, 256)
@@ -1088,7 +1089,7 @@ jobs:
               $bmp.Dispose()
             }
             $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
-            $sizeByte = if($size -eq 256) { [Byte]0 } else { [Byte]$size }
+            $sizeByte = if($size -ge 256) { [Byte]0 } else { [Byte]$size }
             $bw.Write($sizeByte)
             $bw.Write($sizeByte)
             $bw.Write([Byte]0)

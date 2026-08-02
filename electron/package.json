@@ -65,7 +65,7 @@
           ]
         }
       ],
-      "icon": "resources/build/icon-512x512.png",
+      "icon": "resources/build/icon.icns",
       "artifactName": "${productName}-${version}-macos-arm64.${ext}",
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": false

@@ -15,14 +15,15 @@ tauri-build = { version = "1.5", features = [] }
 [dependencies]
 tauri = { version = "1.5", features = [
     "shell-open",
-    "shell-scope-app",
-    "shell-scope-shell",
     "os-all",
     "path-all",
-    "dialog-all",
-    "fs-all",
+    "dialog-open",
+    "dialog-save",
+    "fs-readFile",
+    "fs-writeFile",
+    "fs-createDir",
     "window-all",
-    "menu-all",
+    "menu-create",
     "tray-icon",
     "process-all",
     "clipboard-all",
@@ -30,7 +31,6 @@ tauri = { version = "1.5", features = [
     "app-all",
     "event-all",
     "url-all",
-    "core-all",
     "state-all"
 ] }
 serde = { version = "1", features = ["derive"] }
