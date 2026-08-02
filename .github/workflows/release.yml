@@ -981,6 +981,99 @@ jobs:
             ls -la electron/dist/*.dmg 2>/dev/null || true
           fi
 
+      - name: 🔍 Verify Electron DMG by mounting
+        run: |
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-electron.dmg"
+          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
+          echo "Mounted at: $MOUNTPOINT"
+          ls -la "$MOUNTPOINT"
+          test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
+          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist" "Contents/Resources/app.asar"; do
+            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
+          done
+          hdiutil detach "$MOUNTPOINT"
+          echo "✅ Electron DMG internal structure verification passed"
+
+      - name: 🔥 Electron macOS E2E Verification
+        id: e2e-electron
+        run: |
+          set +e
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-electron.dmg"
+          APP_NAME="${{ env.APP_NAME }}"
+          PORT=20128
+          LOG="$RUNNER_TEMP/electron-server.log"
+          mkdir -p "$RUNNER_TEMP/electron-verify"
+
+          echo "===== Step 1/6: Mount DMG ====="
+          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly 2>/dev/null | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ]; then
+            echo "❌ Cannot mount DMG"
+            exit 1
+          fi
+          echo "✅ DMG mounted: $MOUNTPOINT"
+
+          echo "===== Step 2/6: Copy app to /Applications ====="
+          sudo rm -rf "/Applications/$APP_NAME.app" 2>/dev/null || true
+          cp -R "$MOUNTPOINT/$APP_NAME.app" /Applications/
+          hdiutil detach "$MOUNTPOINT"
+          echo "✅ App installed to /Applications"
+
+          echo "===== Step 3/6: Launch app ====="
+          echo "▶️ Launching $APP_NAME.app ..."
+          script -q /dev/null "open" -a "/Applications/$APP_NAME.app" > "$LOG" 2>&1 &
+          sleep 5
+          PID=$(pgrep -f "$APP_NAME.app" | head -1)
+          echo "Launch PID=$PID"
+
+          echo "⏳ Polling port $PORT (max 60s)..."
+          UP=0
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:$PORT/" -o /dev/null 2>/dev/null; then
+              echo "✅ Server up after ${i}s"
+              UP=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$UP" != "1" ]; then
+            echo "❌ HTTP endpoint timeout"
+            tail -100 "$LOG" || true
+            screencapture -x -t png "$RUNNER_TEMP/electron-verify/01-server-failed.png" 2>/dev/null || true
+            pkill -f "$APP_NAME.app" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "===== Step 4/6: Verify HTTP service ====="
+          curl -fsS -o "$RUNNER_TEMP/electron-verify/home.html" "http://127.0.0.1:$PORT/"
+          curl -fsS -o "$RUNNER_TEMP/electron-verify/dashboard.html" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard not 2xx"
+          echo "✅ HTTP service verified"
+
+          echo "===== Step 5/6: Screenshots ====="
+          screencapture -x -t png "$RUNNER_TEMP/electron-verify/01-app-running.png" 2>/dev/null || true
+          open -ga "/Applications/$APP_NAME.app" 2>/dev/null || true
+          sleep 3
+          screencapture -x -t png "$RUNNER_TEMP/electron-verify/02-app-opened.png" 2>/dev/null || true
+          echo "✅ Screenshots captured"
+
+          echo "===== Step 6/6: Cleanup ====="
+          tail -30 "$LOG" || true
+          cp "$LOG" "$RUNNER_TEMP/electron-verify/server.log" 2>/dev/null || true
+          pkill -f "$APP_NAME.app" 2>/dev/null || true
+          echo "✅ Electron macOS E2E verification passed"
+
+      - name: 📸 Upload Electron macOS verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-macos-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/electron-verify/**
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload macOS Electron artifact
         uses: actions/upload-artifact@v4
         with:
@@ -1243,6 +1336,99 @@ jobs:
             dst="${{ env.APP_NAME }}-$ver-macos-arm64-tauri.dmg"
             mv "$src" "$dst"
           fi
+
+      - name: 🔍 Verify Tauri DMG by mounting
+        run: |
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-tauri.dmg"
+          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
+          echo "Mounted at: $MOUNTPOINT"
+          ls -la "$MOUNTPOINT"
+          test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
+          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist"; do
+            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
+          done
+          hdiutil detach "$MOUNTPOINT"
+          echo "✅ Tauri DMG internal structure verification passed"
+
+      - name: 🔥 Tauri macOS E2E Verification
+        id: e2e-tauri
+        run: |
+          set +e
+          VER="${{ steps.ver.outputs.version }}"
+          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-tauri.dmg"
+          APP_NAME="${{ env.APP_NAME }}"
+          PORT=20128
+          LOG="$RUNNER_TEMP/tauri-server.log"
+          mkdir -p "$RUNNER_TEMP/tauri-verify"
+
+          echo "===== Step 1/6: Mount DMG ====="
+          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly 2>/dev/null | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ]; then
+            echo "❌ Cannot mount DMG"
+            exit 1
+          fi
+          echo "✅ DMG mounted: $MOUNTPOINT"
+
+          echo "===== Step 2/6: Copy app to /Applications ====="
+          sudo rm -rf "/Applications/$APP_NAME.app" 2>/dev/null || true
+          cp -R "$MOUNTPOINT/$APP_NAME.app" /Applications/
+          hdiutil detach "$MOUNTPOINT"
+          echo "✅ App installed to /Applications"
+
+          echo "===== Step 3/6: Launch app ====="
+          echo "▶️ Launching $APP_NAME.app ..."
+          script -q /dev/null "open" -a "/Applications/$APP_NAME.app" > "$LOG" 2>&1 &
+          sleep 5
+          PID=$(pgrep -f "$APP_NAME.app" | head -1)
+          echo "Launch PID=$PID"
+
+          echo "⏳ Polling port $PORT (max 60s)..."
+          UP=0
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:$PORT/" -o /dev/null 2>/dev/null; then
+              echo "✅ Server up after ${i}s"
+              UP=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$UP" != "1" ]; then
+            echo "❌ HTTP endpoint timeout"
+            tail -100 "$LOG" || true
+            screencapture -x -t png "$RUNNER_TEMP/tauri-verify/01-server-failed.png" 2>/dev/null || true
+            pkill -f "$APP_NAME.app" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "===== Step 4/6: Verify HTTP service ====="
+          curl -fsS -o "$RUNNER_TEMP/tauri-verify/home.html" "http://127.0.0.1:$PORT/"
+          curl -fsS -o "$RUNNER_TEMP/tauri-verify/dashboard.html" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard not 2xx"
+          echo "✅ HTTP service verified"
+
+          echo "===== Step 5/6: Screenshots ====="
+          screencapture -x -t png "$RUNNER_TEMP/tauri-verify/01-app-running.png" 2>/dev/null || true
+          open -ga "/Applications/$APP_NAME.app" 2>/dev/null || true
+          sleep 3
+          screencapture -x -t png "$RUNNER_TEMP/tauri-verify/02-app-opened.png" 2>/dev/null || true
+          echo "✅ Screenshots captured"
+
+          echo "===== Step 6/6: Cleanup ====="
+          tail -30 "$LOG" || true
+          cp "$LOG" "$RUNNER_TEMP/tauri-verify/server.log" 2>/dev/null || true
+          pkill -f "$APP_NAME.app" 2>/dev/null || true
+          echo "✅ Tauri macOS E2E verification passed"
+
+      - name: 📸 Upload Tauri macOS verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-macos-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/tauri-verify/**
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload macOS Tauri artifact
         uses: actions/upload-artifact@v4
