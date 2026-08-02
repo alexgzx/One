@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use tauri::{
-    CustomMenuItem, Manager, Runtime, State, SystemTray, SystemTrayEvent, SystemTrayMenu,
+    CustomMenuItem, Manager, Runtime, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem,
 };
 
@@ -96,6 +96,15 @@ impl ServerState {
     }
 }
 
+impl Clone for ServerState {
+    fn clone(&self) -> Self {
+        Self {
+            process: Arc::clone(&self.process),
+            port: self.port,
+        }
+    }
+}
+
 pub fn run() {
     let server_state = ServerState::new(20128);
     
@@ -103,12 +112,6 @@ pub fn run() {
         eprintln!("Failed to start server: {}", e);
     }
 
-    let server_state_clone = server_state.clone();
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(3));
-    });
-
-    let tray_id = "main-tray";
     let show_item = CustomMenuItem::new("show".to_string(), "显示主窗口");
     let restart_item = CustomMenuItem::new("restart".to_string(), "重启服务");
     let quit_item = CustomMenuItem::new("quit".to_string(), "退出");
@@ -120,58 +123,49 @@ pub fn run() {
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit_item);
 
-    SystemTray::new()
+    let system_tray = SystemTray::new()
         .with_tooltip("One")
-        .with_menu(tray_menu)
-        .on_menu_event(move |app, event| {
-            let id = match event.id.as_ref() {
-                "show" => {
-                    if let Some(window) = app.get_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-                "restart" => {
-                    server_state_clone.stop();
-                    if let Err(e) = server_state_clone.start() {
-                        eprintln!("Failed to restart server: {}", e);
-                    }
-                    if let Some(window) = app.get_window("main") {
-                        let _ = window.eval("window.location.reload()");
-                    }
-                }
-                "quit" => {
-                    server_state_clone.stop();
-                    app.exit(0);
-                }
-                _ => {}
-            };
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let SystemTrayEvent::LeftClick { .. } = event {
-                let app = tray.app_handle();
+        .with_menu(tray_menu);
+
+    tauri::Builder::default()
+        .system_tray(system_tray)
+        .on_system_tray_event(move |app, event| match event {
+            SystemTrayEvent::LeftClick { .. } | SystemTrayEvent::DoubleClick { .. } => {
                 if let Some(window) = app.get_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
             }
+            SystemTrayEvent::MenuItemClick { id, .. } => {
+                let server_state = server_state.clone();
+                match id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "restart" => {
+                        server_state.stop();
+                        if let Err(e) = server_state.start() {
+                            eprintln!("Failed to restart server: {}", e);
+                        }
+                        if let Some(window) = app.get_window("main") {
+                            let _ = window.eval("window.location.reload()");
+                        }
+                    }
+                    "quit" => {
+                        server_state.stop();
+                        app.exit(0);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         })
-        .run(|_app_handle| {});
-
-    tauri::Builder::default()
         .setup(|app| {
-            let _ = app.manage(server_state);
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-impl Clone for ServerState {
-    fn clone(&self) -> Self {
-        Self {
-            process: Arc::clone(&self.process),
-            port: self.port,
-        }
-    }
 }

@@ -766,6 +766,67 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: electron
 
+      - name: Generate icons for Electron
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $srcPng = "assemblyai-color.png"
+          if(-not (Test-Path $srcPng)) {
+            Write-Host "Generating default icon..."
+            $bmp = New-Object System.Drawing.Bitmap(256, 256)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.Clear([System.Drawing.Color]::FromArgb(51, 153, 51))
+            $g.Dispose()
+            $bmp.Save($srcPng, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+          }
+          $buildDir = "build"
+          New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
+          $sizes = @(16, 32, 48, 64, 128, 256, 512)
+          foreach($s in $sizes) {
+            $bmp = New-Object System.Drawing.Bitmap($s, $s)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $img = [System.Drawing.Image]::FromFile($srcPng)
+            $g.DrawImage($img, 0, 0, $s, $s)
+            $g.Dispose()
+            $img.Dispose()
+            $bmp.Save("$buildDir/icon-$s.png", [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+          }
+          Copy-Item "$buildDir/icon-256.png" "$buildDir/icon.png" -Force
+          $fs = New-Object System.IO.FileStream("$buildDir/icon.ico", [System.IO.FileMode]::Create)
+          $bw = New-Object System.IO.BinaryWriter($fs)
+          $count = $sizes.Count
+          $bw.Write([UInt16]0)
+          $bw.Write([UInt16]1)
+          $bw.Write([UInt16]$count)
+          $offset = 6 + ($count * 16)
+          for($i=0; $i -lt $count; $i++) {
+            $size = $sizes[$i]
+            $pngPath = "$buildDir/icon-$size.png"
+            $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+            $sizeByte = if($size -eq 256) { [Byte]0 } else { [Byte]$size }
+            $bw.Write($sizeByte)
+            $bw.Write($sizeByte)
+            $bw.Write([Byte]0)
+            $bw.Write([Byte]0)
+            $bw.Write([UInt16]1)
+            $bw.Write([UInt16]32)
+            $bw.Write([UInt32]$pngBytes.Length)
+            $bw.Write([UInt32]$offset)
+            $offset += $pngBytes.Length
+          }
+          for($i=0; $i -lt $count; $i++) {
+            $size = $sizes[$i]
+            $pngPath = "$buildDir/icon-$size.png"
+            $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+            $bw.Write($pngBytes)
+          }
+          $bw.Close()
+          $fs.Close()
+          Write-Host "✅ Icons generated"
+
       - name: Prepare Electron resources
         shell: pwsh
         run: |
@@ -799,12 +860,15 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.ver.outputs.version }}"
-          $src = "electron/dist/${{ env.APP_NAME }} Setup $ver.exe"
-          $dst = "${{ env.APP_NAME }}-$ver-windows-x64-electron.exe"
-          if (Test-Path $src) { Move-Item $src $dst }
-          else {
-            $src2 = Get-ChildItem electron/dist/*.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($src2) { Move-Item $src2.FullName $dst }
+          $pattern = "electron/dist/One-$ver-windows-x64-setup*.exe"
+          $src = Get-ChildItem $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($src) {
+            $dst = "One-$ver-windows-x64-electron.exe"
+            Move-Item $src.FullName $dst
+            Write-Host "✅ Renamed to $dst"
+          } else {
+            Write-Host "❌ No Electron build output found"
+            Get-ChildItem electron/dist/*.exe -ErrorAction SilentlyContinue
           }
 
       - name: Upload Windows Electron artifact
@@ -854,6 +918,53 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: electron
 
+      - name: Generate icons for Electron
+        run: |
+          if [ ! -f "assemblyai-color.png" ]; then
+            echo "Generating default icon..."
+            # 使用 sips 生成简单的绿色图标
+            sips -s format png -z 512 512 /dev/null --out assemblyai-color.png 2>/dev/null || true
+            # 如果失败，创建一个简单的 PNG
+            python3 -c "
+import struct, zlib
+def create_png(w, h, r, g, b):
+    def chunk(chunk_type, data):
+        c = chunk_type + data
+        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xFFFFFFFF)
+    header = b'\x89PNG\r\n\x1a\n'
+    ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+    raw = b''
+    for y in range(h):
+        raw += b'\x00' + bytes([r, g, b]) * w
+    idat = chunk(b'IDAT', zlib.compress(raw))
+    iend = chunk(b'IEND', b'')
+    return header + ihdr + idat + iend
+with open('assemblyai-color.png', 'wb') as f:
+    f.write(create_png(512, 512, 51, 153, 51))
+" 2>/dev/null || true
+          fi
+          mkdir -p build
+          # 使用 sips 生成不同尺寸
+          for size in 16 32 48 64 128 256 512; do
+            sips -z $size $size assemblyai-color.png --out "build/icon-$size.png" 2>/dev/null || cp assemblyai-color.png "build/icon-$size.png"
+          done
+          cp build/icon-256.png build/icon.png
+          # 生成 icns (macOS)
+          if command -v iconutil &> /dev/null; then
+            mkdir -p build/iconset
+            cp build/icon-16.png build/iconset/icon_16x16.png
+            cp build/icon-32.png build/iconset/icon_16x16@2x.png
+            cp build/icon-32.png build/iconset/icon_32x32.png
+            cp build/icon-64.png build/iconset/icon_32x32@2x.png
+            cp build/icon-128.png build/iconset/icon_128x128.png
+            cp build/icon-256.png build/iconset/icon_128x128@2x.png
+            cp build/icon-256.png build/iconset/icon_256x256.png
+            cp build/icon-512.png build/iconset/icon_256x256@2x.png
+            iconutil -c icns build/iconset -o build/icon.icns 2>/dev/null || true
+            rm -rf build/iconset
+          fi
+          echo "✅ Icons generated"
+
       - name: Prepare Electron resources
         run: |
           resDir="electron/resources"
@@ -869,6 +980,7 @@ jobs:
           cp -R node-portable/* "$resDir/node/"
           cp build/icon.png "$resDir/build/"
           cp build/icon-*.png "$resDir/build/" 2>/dev/null || true
+          [ -f build/icon.icns ] && cp build/icon.icns "$resDir/build/" || true
 
       - name: Build Electron DMG
         run: npm run build:mac
@@ -877,11 +989,16 @@ jobs:
       - name: Rename artifact
         run: |
           ver="${{ steps.ver.outputs.version }}"
-          src="electron/dist/${{ env.APP_NAME }}-$ver-arm64.dmg"
-          dst="${{ env.APP_NAME }}-$ver-macos-arm64-electron.dmg"
-          if [ -f "$src" ]; then mv "$src" "$dst"; fi
-          src2="electron/dist/${{ env.APP_NAME }} $ver.dmg"
-          if [ -f "$src2" ]; then mv "$src2" "$dst"; fi
+          pattern="electron/dist/One-$ver-macos-arm64*.dmg"
+          src=$(ls -t $pattern 2>/dev/null | head -1)
+          if [ -n "$src" ]; then
+            dst="One-$ver-macos-arm64-electron.dmg"
+            mv "$src" "$dst"
+            echo "✅ Renamed to $dst"
+          else
+            echo "❌ No Electron build output found"
+            ls -la electron/dist/*.dmg 2>/dev/null || true
+          fi
 
       - name: Upload macOS Electron artifact
         uses: actions/upload-artifact@v4
@@ -937,6 +1054,80 @@ jobs:
         shell: pwsh
         run: npm install -g @tauri-apps/cli@^1.5 2>$null
 
+      - name: Generate icons for Tauri
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $srcPng = "assemblyai-color.png"
+          if(-not (Test-Path $srcPng)) {
+            Write-Host "Generating default icon..."
+            $bmp = New-Object System.Drawing.Bitmap(512, 512)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.Clear([System.Drawing.Color]::FromArgb(51, 153, 51))
+            $g.Dispose()
+            $bmp.Save($srcPng, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+          }
+          $tauriIcons = "src-tauri/icons"
+          New-Item -ItemType Directory -Force -Path $tauriIcons | Out-Null
+          $sizes = @(32, 128)
+          foreach($s in $sizes) {
+            $bmp = New-Object System.Drawing.Bitmap($s, $s)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $img = [System.Drawing.Image]::FromFile($srcPng)
+            $g.DrawImage($img, 0, 0, $s, $s)
+            $g.Dispose()
+            $img.Dispose()
+            $bmp.Save("$tauriIcons/${s}x${s}.png", [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+          }
+          Copy-Item "$tauriIcons/32x32.png" "$tauriIcons/icon.png" -Force
+          # 生成 ICO
+          $fs = New-Object System.IO.FileStream("$tauriIcons/icon.ico", [System.IO.FileMode]::Create)
+          $bw = New-Object System.IO.BinaryWriter($fs)
+          $allSizes = @(16, 32, 48, 64, 128, 256)
+          $count = $allSizes.Count
+          $bw.Write([UInt16]0)
+          $bw.Write([UInt16]1)
+          $bw.Write([UInt16]$count)
+          $offset = 6 + ($count * 16)
+          for($i=0; $i -lt $count; $i++) {
+            $size = $allSizes[$i]
+            $pngPath = "build/icon-$size.png"
+            if(-not (Test-Path $pngPath)) {
+              $bmp = New-Object System.Drawing.Bitmap($size, $size)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+              $img = [System.Drawing.Image]::FromFile($srcPng)
+              $g.DrawImage($img, 0, 0, $size, $size)
+              $g.Dispose()
+              $img.Dispose()
+              $bmp.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+              $bmp.Dispose()
+            }
+            $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+            $sizeByte = if($size -eq 256) { [Byte]0 } else { [Byte]$size }
+            $bw.Write($sizeByte)
+            $bw.Write($sizeByte)
+            $bw.Write([Byte]0)
+            $bw.Write([Byte]0)
+            $bw.Write([UInt16]1)
+            $bw.Write([UInt16]32)
+            $bw.Write([UInt32]$pngBytes.Length)
+            $bw.Write([UInt32]$offset)
+            $offset += $pngBytes.Length
+          }
+          for($i=0; $i -lt $count; $i++) {
+            $size = $allSizes[$i]
+            $pngPath = "build/icon-$size.png"
+            $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+            $bw.Write($pngBytes)
+          }
+          $bw.Close()
+          $fs.Close()
+          Write-Host "✅ Tauri icons generated"
+
       - name: Prepare Tauri resources
         shell: pwsh
         run: |
@@ -959,8 +1150,7 @@ jobs:
       - name: Build Tauri MSI
         shell: pwsh
         run: |
-          cd src-tauri
-          npm run tauri build -- --bundles msi
+          tauri build --bundles msi
 
       - name: Rename artifact
         shell: pwsh
@@ -1021,6 +1211,46 @@ jobs:
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^1.5
 
+      - name: Generate icons for Tauri
+        run: |
+          if [ ! -f "assemblyai-color.png" ]; then
+            echo "Generating default icon..."
+            python3 -c "
+import struct, zlib
+def create_png(w, h, r, g, b):
+    def chunk(chunk_type, data):
+        c = chunk_type + data
+        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xFFFFFFFF)
+    header = b'\x89PNG\r\n\x1a\n'
+    ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+    raw = b''
+    for y in range(h):
+        raw += b'\x00' + bytes([r, g, b]) * w
+    idat = chunk(b'IDAT', zlib.compress(raw))
+    iend = chunk(b'IEND', b'')
+    return header + ihdr + idat + iend
+with open('assemblyai-color.png', 'wb') as f:
+    f.write(create_png(512, 512, 51, 153, 51))
+"
+          fi
+          tauriIcons="src-tauri/icons"
+          mkdir -p "$tauriIcons"
+          for size in 32 128; do
+            sips -z $size $size assemblyai-color.png --out "$tauriIcons/${size}x${size}.png" 2>/dev/null || cp assemblyai-color.png "$tauriIcons/${size}x${size}.png"
+          done
+          cp "$tauriIcons/32x32.png" "$tauriIcons/icon.png"
+          # 生成 icns
+          if command -v iconutil &> /dev/null; then
+            mkdir -p /tmp/tauri-iconset
+            cp "$tauriIcons/32x32.png" /tmp/tauri-iconset/icon_16x16@2x.png
+            cp "$tauriIcons/128x128.png" /tmp/tauri-iconset/icon_128x128.png
+            cp assemblyai-color.png /tmp/tauri-iconset/icon_256x256@2x.png
+            cp assemblyai-color.png /tmp/tauri-iconset/icon_512x512.png
+            iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" 2>/dev/null || true
+            rm -rf /tmp/tauri-iconset
+          fi
+          echo "✅ Tauri icons generated"
+
       - name: Prepare Tauri resources
         run: |
           resDir="src-tauri/resources"
@@ -1037,8 +1267,7 @@ jobs:
 
       - name: Build Tauri DMG
         run: |
-          cd src-tauri
-          npm run tauri build -- --bundles dmg
+          tauri build --bundles dmg
 
       - name: Rename artifact
         run: |

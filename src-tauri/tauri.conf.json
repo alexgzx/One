@@ -4,7 +4,7 @@
     "beforeBuildCommand": null,
     "beforeDevCommand": null,
     "devPath": "http://localhost:20128",
-    "distDir": "../build"
+    "distDir": "dist"
   },
   "package": {
     "productName": "One",
@@ -38,12 +38,6 @@
       "window": {
         "all": true
       },
-      "menu": {
-        "all": true
-      },
-      "tray": {
-        "all": true
-      },
       "process": {
         "all": true,
         "exit": true,
@@ -66,7 +60,8 @@
         "icons/32x32.png",
         "icons/128x128.png",
         "icons/icon.ico",
-        "icons/icon.png"
+        "icons/icon.png",
+        "icons/icon.icns"
       ],
       "identifier": "com.one.desktop",
       "category": "DeveloperTools",

@@ -47,7 +47,7 @@
         }
       ],
       "icon": "resources/build/icon.ico",
-      "artifactName": "${productName}-${version}-windows-x64-${ext}.${ext}"
+      "artifactName": "${productName}-${version}-windows-x64-setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -66,11 +66,9 @@
         }
       ],
       "icon": "resources/build/icon-512x512.png",
-      "artifactName": "${productName}-${version}-macos-arm64-${ext}.${ext}",
+      "artifactName": "${productName}-${version}-macos-arm64.${ext}",
       "category": "public.app-category.developer-tools",
-      "hardenedRuntime": true,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "hardenedRuntime": false
     },
     "dmg": {
       "contents": [
