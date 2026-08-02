@@ -36,8 +36,16 @@ impl ServerState {
         let node_path = Self::get_node_path(&resource_path);
         let cli_path = resource_path.join("cli").join("cli.js");
 
+        eprintln!("Resource path: {:?}", resource_path);
+        eprintln!("Node path: {:?}", node_path);
+        eprintln!("CLI path: {:?}", cli_path);
+
         if !cli_path.exists() {
             return Err(format!("CLI not found at: {:?}", cli_path));
+        }
+
+        if !node_path.exists() {
+            return Err(format!("Node not found at: {:?}", node_path));
         }
 
         let cli_dir = cli_path.parent().unwrap();
@@ -71,14 +79,32 @@ impl ServerState {
 
     fn get_resource_path() -> PathBuf {
         if cfg!(debug_assertions) {
-            PathBuf::from("resources")
-        } else {
-            env::current_exe()
-                .unwrap_or_else(|_| PathBuf::from("."))
-                .parent()
-                .map_or_else(|| PathBuf::from("."), |p| p.to_path_buf())
-                .join("resources")
+            return PathBuf::from("resources");
         }
+
+        let exe = env::current_exe()
+            .unwrap_or_else(|_| PathBuf::from("."));
+
+        // macOS .app bundle: exe = One.app/Contents/MacOS/One
+        // Tauri bundles resources to: One.app/Contents/Resources/resources/
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(macos_dir) = exe.parent() {
+                // macOS_dir = One.app/Contents/MacOS
+                if let Some(contents_dir) = macos_dir.parent() {
+                    // contents_dir = One.app/Contents
+                    let res = contents_dir.join("Resources").join("resources");
+                    if res.exists() {
+                        return res;
+                    }
+                }
+            }
+        }
+
+        // Windows / Linux: exe_dir/resources
+        exe.parent()
+            .map_or_else(|| PathBuf::from("."), |p| p.to_path_buf())
+            .join("resources")
     }
 
     fn get_node_path(resource_path: &PathBuf) -> PathBuf {

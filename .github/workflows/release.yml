@@ -401,6 +401,70 @@ jobs:
             ${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64.msi
           if-no-files-found: error
 
+      - name: E2E Verification (ZIP)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.ver.outputs.version }}"
+          $appName = "${{ env.APP_NAME }}"
+          $zip = "$appName-$ver-windows-x64.zip"
+          $port = 20128
+          $verifyDir = "$env:RUNNER_TEMP\cli-verify"
+          New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
+
+          Write-Host "===== Step 1/5: Extract ZIP ====="
+          $extractDir = "$env:RUNNER_TEMP\cli-extract"
+          Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+          $exePath = Get-ChildItem -Path $extractDir -Filter "$appName.exe" -Recurse | Select-Object -First 1
+          if (-not $exePath) { throw "$appName.exe not found in archive" }
+          Write-Host "Found: $($exePath.FullName)"
+
+          Write-Host "===== Step 2/5: Launch app ====="
+          $proc = Start-Process -FilePath $exePath.FullName -PassThru -WindowStyle Hidden
+          Write-Host "Launched PID=$($proc.Id)"
+          Start-Sleep -Seconds 5
+
+          Write-Host "===== Step 3/5: Polling port $port (max 90s) ====="
+          $up = $false
+          for ($i = 1; $i -le 90; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 3
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "Server up after ${i}s"
+                $up = $true
+                break
+              }
+            } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) {
+            Write-Host "ERROR: HTTP endpoint timeout"
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "HTTP endpoint timeout"
+          }
+
+          Write-Host "===== Step 4/5: Verify HTTP service ====="
+          $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
+          $homeResp.Content | Out-File "$verifyDir\home.html"
+          Write-Host "Home page: $($homeResp.StatusCode)"
+          try {
+            $dashResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/dashboard" -UseBasicParsing -TimeoutSec 5
+            $dashResp.Content | Out-File "$verifyDir\dashboard.html"
+            Write-Host "Dashboard: $($dashResp.StatusCode)"
+          } catch { Write-Host "WARNING: /dashboard not 2xx" }
+
+          Write-Host "===== Step 5/5: Cleanup ====="
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+          Write-Host "CLI Windows E2E verification passed"
+
+      - name: Upload CLI verification artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-cli-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/cli-verify/**
+          if-no-files-found: warn
+
   # =====================================================================
   # 3. macOS ARM (Apple Silicon)：.app bundle + .dmg
   # =====================================================================
@@ -878,6 +942,76 @@ jobs:
           path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64-electron.exe"
           if-no-files-found: error
 
+      - name: E2E Verification (NSIS)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.ver.outputs.version }}"
+          $appName = "${{ env.APP_NAME }}"
+          $exe = "$appName-$ver-windows-x64-electron.exe"
+          $port = 20128
+          $verifyDir = "$env:RUNNER_TEMP\electron-verify"
+          New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
+
+          Write-Host "===== Step 1/5: Install NSIS ====="
+          $installDir = "$env:RUNNER_TEMP\electron-install"
+          $args = "/S /D=$installDir"
+          Start-Process -FilePath $exe -ArgumentList "/S" -Wait -NoNewWindow
+          Start-Sleep -Seconds 3
+          $appExe = Get-ChildItem -Path $installDir -Filter "$appName.exe" -Recurse | Select-Object -First 1
+          if (-not $appExe) {
+            $appExe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Filter "$appName.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if (-not $appExe) { throw "$appName.exe not found after NSIS install" }
+          Write-Host "Found: $($appExe.FullName)"
+
+          Write-Host "===== Step 2/5: Launch app ====="
+          $proc = Start-Process -FilePath $appExe.FullName -PassThru
+          Write-Host "Launched PID=$($proc.Id)"
+          Start-Sleep -Seconds 5
+
+          Write-Host "===== Step 3/5: Polling port $port (max 90s) ====="
+          $up = $false
+          for ($i = 1; $i -le 90; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 3
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "Server up after ${i}s"
+                $up = $true
+                break
+              }
+            } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) {
+            Write-Host "ERROR: HTTP endpoint timeout"
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "HTTP endpoint timeout"
+          }
+
+          Write-Host "===== Step 4/5: Verify HTTP service ====="
+          $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
+          $homeResp.Content | Out-File "$verifyDir\home.html"
+          Write-Host "Home page: $($homeResp.StatusCode)"
+          try {
+            $dashResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/dashboard" -UseBasicParsing -TimeoutSec 5
+            $dashResp.Content | Out-File "$verifyDir\dashboard.html"
+            Write-Host "Dashboard: $($dashResp.StatusCode)"
+          } catch { Write-Host "WARNING: /dashboard not 2xx" }
+
+          Write-Host "===== Step 5/5: Cleanup ====="
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Get-Process -Name "$appName*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+          Write-Host "Electron Windows E2E verification passed"
+
+      - name: Upload Electron verification artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-electron-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/electron-verify/**
+          if-no-files-found: warn
+
   # =====================================================================
   # 6. macOS arm64 Electron 构建
   # =====================================================================
@@ -925,25 +1059,53 @@ jobs:
             python3 scripts/generate-icons.py .
           fi
           mkdir -p build
-          # 使用 sips 生成不同尺寸
+          # Generate PNGs with sips
           for size in 16 32 48 64 128 256 512; do
-            sips -z $size $size assemblyai-color.png --out "build/icon-$size.png" 2>/dev/null || cp assemblyai-color.png "build/icon-$size.png"
+            sips -z $size $size assemblyai-color.png --out "build/icon-$size.png" >/dev/null
           done
           cp build/icon-256.png build/icon.png
-          # 生成 icns (macOS)
-          if command -v iconutil &> /dev/null; then
-            mkdir -p build/iconset
-            cp build/icon-16.png build/iconset/icon_16x16.png
-            cp build/icon-32.png build/iconset/icon_16x16@2x.png
-            cp build/icon-32.png build/iconset/icon_32x32.png
-            cp build/icon-64.png build/iconset/icon_32x32@2x.png
-            cp build/icon-128.png build/iconset/icon_128x128.png
-            cp build/icon-256.png build/iconset/icon_128x128@2x.png
-            cp build/icon-256.png build/iconset/icon_256x256.png
-            cp build/icon-512.png build/iconset/icon_256x256@2x.png
-            iconutil -c icns build/iconset -o build/icon.icns 2>/dev/null || true
-            rm -rf build/iconset
-          fi
+          # Generate .icns using pure Python (bypass iconutil compatibility issues)
+          ICONSET="/tmp/electron-iconset"
+          rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+          sips -z 16 16 assemblyai-color.png --out "$ICONSET/icon_16x16.png" >/dev/null
+          sips -z 32 32 assemblyai-color.png --out "$ICONSET/icon_16x16@2x.png" >/dev/null
+          sips -z 32 32 assemblyai-color.png --out "$ICONSET/icon_32x32.png" >/dev/null
+          sips -z 64 64 assemblyai-color.png --out "$ICONSET/icon_32x32@2x.png" >/dev/null
+          sips -z 128 128 assemblyai-color.png --out "$ICONSET/icon_128x128.png" >/dev/null
+          sips -z 256 256 assemblyai-color.png --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+          sips -z 256 256 assemblyai-color.png --out "$ICONSET/icon_256x256.png" >/dev/null
+          sips -z 512 512 assemblyai-color.png --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+          sips -z 512 512 assemblyai-color.png --out "$ICONSET/icon_512x512.png" >/dev/null
+          sips -z 1024 1024 assemblyai-color.png --out "$ICONSET/icon_512x512@2x.png" >/dev/null
+          ICONSET_DIR="$ICONSET" python3 << 'PYEOF'
+          import struct, os, zlib
+          def validate_png(path):
+              with open(path, "rb") as f: data = f.read()
+              if len(data) < 24: return False
+              if data[:8] != b'\x89PNG\r\n\x1a\n': return False
+              return True
+          iconset = os.environ["ICONSET_DIR"]
+          specs = [
+              ('icp4','icon_16x16.png'), ('icp5','icon_16x16@2x.png'),
+              ('icp6','icon_32x32.png'), ('icp7','icon_32x32@2x.png'),
+              ('ic07','icon_128x128.png'), ('ic08','icon_128x128@2x.png'),
+              ('ic09','icon_256x256.png'), ('ic0a','icon_256x256@2x.png'),
+              ('ic0b','icon_512x512.png'), ('ic0c','icon_512x512@2x.png'),
+          ]
+          entry_data = b""
+          for code, name in specs:
+              p = os.path.join(iconset, name)
+              if not validate_png(p): print(f"ERROR: invalid {name}"); exit(1)
+              with open(p, "rb") as f: png = f.read()
+              entry_data += code.encode() + struct.pack(">I", 8+len(png)) + png
+          total = 8 + len(entry_data)
+          with open("build/icon.icns", "wb") as f:
+              f.write(b'icns' + struct.pack(">I", total) + entry_data)
+          print(f"icon.icns generated ({total} bytes)")
+          PYEOF
+          rm -rf "$ICONSET"
+          # Verify icns was created
+          test -f build/icon.icns || { echo "ERROR: icon.icns not generated"; exit 1; }
           echo "✅ Icons generated"
 
       - name: Prepare Electron resources
@@ -961,7 +1123,7 @@ jobs:
           cp -R node-portable/* "$resDir/node/"
           cp build/icon.png "$resDir/build/"
           cp build/icon-*.png "$resDir/build/" 2>/dev/null || true
-          [ -f build/icon.icns ] && cp build/icon.icns "$resDir/build/" || true
+          cp build/icon.icns "$resDir/build/"
 
       - name: Build Electron DMG
         run: npm run build:mac
@@ -1274,6 +1436,72 @@ jobs:
           name: windows-x64-tauri
           path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-windows-x64-tauri.msi"
           if-no-files-found: error
+
+      - name: E2E Verification (MSI)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = "${{ steps.ver.outputs.version }}"
+          $appName = "${{ env.APP_NAME }}"
+          $msi = "$appName-$ver-windows-x64-tauri.msi"
+          $port = 20128
+          $verifyDir = "$env:RUNNER_TEMP\tauri-verify"
+          New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
+
+          Write-Host "===== Step 1/5: Install MSI ====="
+          $installDir = "C:\Program Files\$appName"
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$((Resolve-Path $msi).Path)`" /qn /norestart" -Wait
+          Start-Sleep -Seconds 3
+          $appExe = Get-ChildItem -Path $installDir -Filter "$appName.exe" -Recurse | Select-Object -First 1
+          if (-not $appExe) { throw "$appName.exe not found after MSI install at $installDir" }
+          Write-Host "Found: $($appExe.FullName)"
+
+          Write-Host "===== Step 2/5: Launch app ====="
+          $proc = Start-Process -FilePath $appExe.FullName -PassThru
+          Write-Host "Launched PID=$($proc.Id)"
+          Start-Sleep -Seconds 5
+
+          Write-Host "===== Step 3/5: Polling port $port (max 90s) ====="
+          $up = $false
+          for ($i = 1; $i -le 90; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 3
+              if ($resp.StatusCode -eq 200) {
+                Write-Host "Server up after ${i}s"
+                $up = $true
+                break
+              }
+            } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $up) {
+            Write-Host "ERROR: HTTP endpoint timeout"
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "HTTP endpoint timeout"
+          }
+
+          Write-Host "===== Step 4/5: Verify HTTP service ====="
+          $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
+          $homeResp.Content | Out-File "$verifyDir\home.html"
+          Write-Host "Home page: $($homeResp.StatusCode)"
+          try {
+            $dashResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/dashboard" -UseBasicParsing -TimeoutSec 5
+            $dashResp.Content | Out-File "$verifyDir\dashboard.html"
+            Write-Host "Dashboard: $($dashResp.StatusCode)"
+          } catch { Write-Host "WARNING: /dashboard not 2xx" }
+
+          Write-Host "===== Step 5/5: Cleanup ====="
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Get-Process -Name "$appName*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+          Write-Host "Tauri Windows E2E verification passed"
+
+      - name: Upload Tauri verification artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-tauri-verification-${{ steps.ver.outputs.version }}
+          path: ${{ runner.temp }}/tauri-verify/**
+          if-no-files-found: warn
 
   # =====================================================================
   # 8. macOS arm64 Tauri 构建
