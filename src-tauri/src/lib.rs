@@ -76,7 +76,7 @@ impl ServerState {
             env::current_exe()
                 .unwrap_or_else(|_| PathBuf::from("."))
                 .parent()
-                .unwrap_or_else(|| PathBuf::from("."))
+                .map_or_else(|| PathBuf::from("."), |p| p.to_path_buf())
                 .join("resources")
         }
     }

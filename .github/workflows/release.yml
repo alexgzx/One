@@ -983,15 +983,35 @@ jobs:
 
       - name: 🔍 Verify Electron DMG by mounting
         run: |
+          set -e
           VER="${{ steps.ver.outputs.version }}"
-          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-electron.dmg"
-          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
+          APP="${{ env.APP_NAME }}"
+          DMG="$(pwd)/$APP-$VER-macos-arm64-electron.dmg"
+          echo "DMG path: $DMG"
+          ls -la "$DMG"
+          RAW=$(hdiutil attach "$DMG" -nobrowse -readonly 2>&1)
+          echo "hdiutil output:"
+          echo "$RAW"
+          # Try the simple awk parsing first; fallback to grep-based lookup
+          MOUNTPOINT=$(echo "$RAW" | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            DEV=$(echo "$RAW" | head -1 | awk '{print $1}')
+            echo "Primary parsing failed (MOUNTPOINT=$MOUNTPOINT DEV=$DEV); falling back to mount lookup"
+            MOUNTPOINT=$(mount | grep -F "$DEV" | awk '{print $3}')
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            # Final fallback: search /Volumes for our .app
+            MOUNTPOINT=""
+            for p in /Volumes/*; do
+              if [ -d "$p/$APP.app" ]; then MOUNTPOINT="$p"; break; fi
+            done
+          fi
           echo "Mounted at: $MOUNTPOINT"
-          ls -la "$MOUNTPOINT"
-          test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
-          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
-          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist" "Contents/Resources/app.asar"; do
-            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
+          test -n "$MOUNTPOINT" || { echo "❌ Failed to resolve mount point"; exit 1; }
+          test -d "$MOUNTPOINT/$APP.app" || { echo "❌ $APP.app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          codesign --verify --verbose=2 "$MOUNTPOINT/$APP.app" || echo "⚠️ signature verify reported issues"
+          for f in "Contents/MacOS/$APP" "Contents/Info.plist" "Contents/Resources/app.asar"; do
+            test -e "$MOUNTPOINT/$APP.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
           done
           hdiutil detach "$MOUNTPOINT"
           echo "✅ Electron DMG internal structure verification passed"
@@ -1001,15 +1021,26 @@ jobs:
         run: |
           set +e
           VER="${{ steps.ver.outputs.version }}"
-          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-electron.dmg"
           APP_NAME="${{ env.APP_NAME }}"
+          DMG="$(pwd)/$APP_NAME-$VER-macos-arm64-electron.dmg"
           PORT=20128
           LOG="$RUNNER_TEMP/electron-server.log"
           mkdir -p "$RUNNER_TEMP/electron-verify"
 
           echo "===== Step 1/6: Mount DMG ====="
-          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly 2>/dev/null | tail -1 | awk '{print $3}')
-          if [ -z "$MOUNTPOINT" ]; then
+          RAW=$(hdiutil attach "$DMG" -nobrowse -readonly 2>&1)
+          echo "hdiutil output: $RAW"
+          MOUNTPOINT=$(echo "$RAW" | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            DEV=$(echo "$RAW" | head -1 | awk '{print $1}')
+            MOUNTPOINT=$(mount | grep -F "$DEV" | awk '{print $3}')
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            for p in /Volumes/*; do
+              if [ -d "$p/$APP_NAME.app" ]; then MOUNTPOINT="$p"; break; fi
+            done
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
             echo "❌ Cannot mount DMG"
             exit 1
           fi
@@ -1339,15 +1370,35 @@ jobs:
 
       - name: 🔍 Verify Tauri DMG by mounting
         run: |
+          set -e
           VER="${{ steps.ver.outputs.version }}"
-          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-tauri.dmg"
-          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly | tail -1 | awk '{print $3}')
+          APP="${{ env.APP_NAME }}"
+          DMG="$(pwd)/$APP-$VER-macos-arm64-tauri.dmg"
+          echo "DMG path: $DMG"
+          ls -la "$DMG"
+          RAW=$(hdiutil attach "$DMG" -nobrowse -readonly 2>&1)
+          echo "hdiutil output:"
+          echo "$RAW"
+          # Try the simple awk parsing first; fallback to grep-based lookup
+          MOUNTPOINT=$(echo "$RAW" | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            DEV=$(echo "$RAW" | head -1 | awk '{print $1}')
+            echo "Primary parsing failed (MOUNTPOINT=$MOUNTPOINT DEV=$DEV); falling back to mount lookup"
+            MOUNTPOINT=$(mount | grep -F "$DEV" | awk '{print $3}')
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            # Final fallback: search /Volumes for our .app
+            MOUNTPOINT=""
+            for p in /Volumes/*; do
+              if [ -d "$p/$APP.app" ]; then MOUNTPOINT="$p"; break; fi
+            done
+          fi
           echo "Mounted at: $MOUNTPOINT"
-          ls -la "$MOUNTPOINT"
-          test -d "$MOUNTPOINT/${{ env.APP_NAME }}.app" || { echo "❌ .app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
-          codesign --verify --verbose=2 "$MOUNTPOINT/${{ env.APP_NAME }}.app" || echo "⚠️ signature verify reported issues"
-          for f in "Contents/MacOS/${{ env.APP_NAME }}" "Contents/Info.plist"; do
-            test -e "$MOUNTPOINT/${{ env.APP_NAME }}.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
+          test -n "$MOUNTPOINT" || { echo "❌ Failed to resolve mount point"; exit 1; }
+          test -d "$MOUNTPOINT/$APP.app" || { echo "❌ $APP.app missing inside DMG"; hdiutil detach "$MOUNTPOINT"; exit 1; }
+          codesign --verify --verbose=2 "$MOUNTPOINT/$APP.app" || echo "⚠️ signature verify reported issues"
+          for f in "Contents/MacOS/$APP" "Contents/Info.plist"; do
+            test -e "$MOUNTPOINT/$APP.app/$f" && echo "✅ $f" || echo "⚠️ Missing: $f"
           done
           hdiutil detach "$MOUNTPOINT"
           echo "✅ Tauri DMG internal structure verification passed"
@@ -1357,15 +1408,26 @@ jobs:
         run: |
           set +e
           VER="${{ steps.ver.outputs.version }}"
-          DMG="${{ env.APP_NAME }}-$VER-macos-arm64-tauri.dmg"
           APP_NAME="${{ env.APP_NAME }}"
+          DMG="$(pwd)/$APP_NAME-$VER-macos-arm64-tauri.dmg"
           PORT=20128
           LOG="$RUNNER_TEMP/tauri-server.log"
           mkdir -p "$RUNNER_TEMP/tauri-verify"
 
           echo "===== Step 1/6: Mount DMG ====="
-          MOUNTPOINT=$(hdiutil attach "$DMG" -nobrowse -readonly 2>/dev/null | tail -1 | awk '{print $3}')
-          if [ -z "$MOUNTPOINT" ]; then
+          RAW=$(hdiutil attach "$DMG" -nobrowse -readonly 2>&1)
+          echo "hdiutil output: $RAW"
+          MOUNTPOINT=$(echo "$RAW" | tail -1 | awk '{print $3}')
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            DEV=$(echo "$RAW" | head -1 | awk '{print $1}')
+            MOUNTPOINT=$(mount | grep -F "$DEV" | awk '{print $3}')
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
+            for p in /Volumes/*; do
+              if [ -d "$p/$APP_NAME.app" ]; then MOUNTPOINT="$p"; break; fi
+            done
+          fi
+          if [ -z "$MOUNTPOINT" ] || [ ! -d "$MOUNTPOINT" ]; then
             echo "❌ Cannot mount DMG"
             exit 1
           fi

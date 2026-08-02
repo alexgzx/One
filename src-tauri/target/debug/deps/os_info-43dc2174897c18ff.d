@@ -1,0 +1,11 @@
+C:\Users\alexg\Desktop\One\src-tauri\target\debug\deps\os_info-43dc2174897c18ff.d: C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\lib.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\mod.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\winapi.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\bitness.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\info.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\os_type.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\version.rs
+
+C:\Users\alexg\Desktop\One\src-tauri\target\debug\deps\libos_info-43dc2174897c18ff.rmeta: C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\lib.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\mod.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\winapi.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\bitness.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\info.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\os_type.rs C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\version.rs
+
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\lib.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\mod.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\windows\winapi.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\bitness.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\info.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\os_type.rs:
+C:\Users\alexg\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\os_info-3.15.0\src\version.rs:
