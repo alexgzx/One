@@ -1323,60 +1323,61 @@ jobs:
             echo "Generating default icon..."
             python3 scripts/generate-icons.py .
           fi
-          npm install --no-save --no-audit --no-fund sharp@^0.33 2>&1 | tail -3
+          # Install Pillow for reliable PNG generation (compatible with iconutil)
+          python3 -m pip install --no-cache-dir Pillow 2>&1 | tail -3
           tauriIcons="src-tauri/icons"
           mkdir -p "$tauriIcons"
-          # Write icon generation script to avoid bash $ expansion issues
-          cat > /tmp/gen-tauri-icons.js << 'JSEOF'
-          const sharp = require('sharp');
-          const fs = require('fs');
-          const path = require('path');
-          const png = fs.readFileSync('assemblyai-color.png');
-          const outDir = process.env.TAURI_ICONS;
-          (async () => {
-            const sizes = [16, 32, 48, 64, 128, 256, 512, 1024];
-            for (const size of sizes) {
-              await sharp(png).resize(size, size, { fit: 'contain' }).png()
-                .toFile(path.join(outDir, size + 'x' + size + '.png'));
-            }
-            fs.copyFileSync(path.join(outDir, '512x512.png'), path.join(outDir, 'icon.png'));
-            const iconset = '/tmp/tauri-iconset';
-            fs.rmSync(iconset, { recursive: true, force: true });
-            fs.mkdirSync(iconset, { recursive: true });
-            const iconSpecs = [
-              [16, 'icon_16x16.png'], [32, 'icon_16x16@2x.png'],
-              [32, 'icon_32x32.png'], [64, 'icon_32x32@2x.png'],
-              [128, 'icon_128x128.png'], [256, 'icon_128x128@2x.png'],
-              [256, 'icon_256x256.png'], [512, 'icon_256x256@2x.png'],
-              [512, 'icon_512x512.png'], [1024, 'icon_512x512@2x.png']
-            ];
-            for (const [sz, name] of iconSpecs) {
-              await sharp(png).resize(sz, sz, { fit: 'contain' }).png()
-                .toFile(path.join(iconset, name));
-            }
-            const icoSizes = [16, 32, 48, 64, 128, 256];
-            const icoBufs = [];
-            for (const sz of icoSizes) {
-              icoBufs.push({ sz, buf: await sharp(png).resize(sz, sz, { fit: 'contain' }).png().toBuffer() });
-            }
-            let hdr = Buffer.alloc(6);
-            hdr.writeUInt16LE(0, 0); hdr.writeUInt16LE(1, 2); hdr.writeUInt16LE(icoBufs.length, 4);
-            let off = 6 + 16 * icoBufs.length;
-            const parts = [hdr];
-            for (const { sz, buf } of icoBufs) {
-              const e = Buffer.alloc(16);
-              e.writeUInt8(sz >= 256 ? 0 : sz, 0); e.writeUInt8(sz >= 256 ? 0 : sz, 1);
-              e.writeUInt8(0, 2); e.writeUInt8(0, 3);
-              e.writeUInt16LE(1, 4); e.writeUInt16LE(32, 6);
-              e.writeUInt32LE(buf.length, 8); e.writeUInt32LE(off, 12);
-              parts.push(e); off += buf.length;
-            }
-            for (const { buf } of icoBufs) parts.push(buf);
-            fs.writeFileSync(path.join(outDir, 'icon.ico'), Buffer.concat(parts));
-            console.log('✅ Generated PNGs, icon.png, icon.ico');
-          })().catch(e => { console.error(e); process.exit(1); });
-          JSEOF
-          NODE_PATH="$(pwd)/node_modules" TAURI_ICONS="$tauriIcons" node /tmp/gen-tauri-icons.js
+          # Use Python/Pillow to generate all PNG sizes (most compatible with iconutil)
+          TAURI_ICONS="$tauriIcons" python3 << 'PYEOF'
+          import os
+          from PIL import Image
+          
+          src = "assemblyai-color.png"
+          out_dir = os.environ.get("TAURI_ICONS", "src-tauri/icons")
+          img = Image.open(src).convert("RGBA")
+          
+          # Standard icon sizes for Tauri
+          sizes = [16, 32, 48, 64, 128, 256, 512, 1024]
+          for size in sizes:
+            resized = img.resize((size, size), Image.LANCZOS)
+            resized.save(os.path.join(out_dir, f"{size}x{size}.png"), "PNG")
+          
+          # icon.png (512px)
+          img512 = img.resize((512, 512), Image.LANCZOS)
+          img512.save(os.path.join(out_dir, "icon.png"), "PNG")
+          
+          # Build iconset for iconutil
+          iconset = "/tmp/tauri-iconset"
+          os.system(f"rm -rf {iconset}")
+          os.makedirs(iconset, exist_ok=True)
+          
+          icon_specs = [
+              (16, "icon_16x16.png"), (32, "icon_16x16@2x.png"),
+              (32, "icon_32x32.png"), (64, "icon_32x32@2x.png"),
+              (128, "icon_128x128.png"), (256, "icon_128x128@2x.png"),
+              (256, "icon_256x256.png"), (512, "icon_256x256@2x.png"),
+              (512, "icon_512x512.png"), (1024, "icon_512x512@2x.png")
+          ]
+          for size, name in icon_specs:
+            resized = img.resize((size, size), Image.LANCZOS)
+            resized.save(os.path.join(iconset, name), "PNG")
+          
+          # Build ICO file (Pillow supports ICO natively)
+          ico_sizes = [16, 32, 48, 64, 128, 256]
+          ico_images = []
+          for size in ico_sizes:
+            resized = img.resize((size, size), Image.LANCZOS)
+            ico_images.append(resized)
+          
+          ico_images[0].save(
+              os.path.join(out_dir, "icon.ico"),
+              format="ICO",
+              sizes=[(s, s) for s in ico_sizes],
+              append_images=ico_images[1:]
+          )
+          
+          print("✅ Generated PNGs, icon.png, icon.ico")
+          PYEOF
           if command -v iconutil &> /dev/null; then
             iconutil -c icns /tmp/tauri-iconset -o "$tauriIcons/icon.icns" || { echo "❌ iconutil failed"; ls -la /tmp/tauri-iconset/; exit 1; }
             echo "✅ icon.icns generated"
@@ -1384,7 +1385,7 @@ jobs:
           else
             echo "⚠️ iconutil not found on this runner"
           fi
-          rm -rf /tmp/tauri-iconset /tmp/gen-tauri-icons.js
+          rm -rf /tmp/tauri-iconset
           ls -la "$tauriIcons/"
           echo "✅ Tauri icons generated"
 
