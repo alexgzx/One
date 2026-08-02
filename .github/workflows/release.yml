@@ -948,21 +948,32 @@ jobs:
           $ErrorActionPreference = "Stop"
           $ver = "${{ steps.ver.outputs.version }}"
           $appName = "${{ env.APP_NAME }}"
-          $exe = "$appName-$ver-windows-x64-electron.exe"
+          $installer = "$appName-$ver-windows-x64-electron.exe"
           $port = 20128
           $verifyDir = "$env:RUNNER_TEMP\electron-verify"
           New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
 
           Write-Host "===== Step 1/5: Install NSIS ====="
           $installDir = "$env:RUNNER_TEMP\electron-install"
-          $args = "/S /D=$installDir"
-          Start-Process -FilePath $exe -ArgumentList "/S" -Wait -NoNewWindow
+          New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+          Write-Host "Installing $installer to $installDir ..."
+          Start-Process -FilePath $installer -ArgumentList "/S", "/D=$installDir" -Wait -NoNewWindow
           Start-Sleep -Seconds 3
-          $appExe = Get-ChildItem -Path $installDir -Filter "$appName.exe" -Recurse | Select-Object -First 1
-          if (-not $appExe) {
-            $appExe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Filter "$appName.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          Write-Host "Searching for $appName.exe ..."
+          $searchRoots = @($installDir, "$env:LOCALAPPDATA\Programs\$appName", "$env:LOCALAPPDATA\$appName", "$env:ProgramFiles\$appName")
+          $appExe = $null
+          foreach ($root in $searchRoots) {
+            Write-Host "  Searching: $root"
+            if (Test-Path $root) {
+              $found = Get-ChildItem -Path $root -Filter "$appName.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($found) { $appExe = $found; break }
+            }
           }
-          if (-not $appExe) { throw "$appName.exe not found after NSIS install" }
+          if (-not $appExe) {
+            Write-Host "LS of installDir:"
+            Get-ChildItem -Path $installDir -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
+            throw "$appName.exe not found after NSIS install"
+          }
           Write-Host "Found: $($appExe.FullName)"
 
           Write-Host "===== Step 2/5: Launch app ====="
@@ -1443,17 +1454,30 @@ jobs:
           $ErrorActionPreference = "Stop"
           $ver = "${{ steps.ver.outputs.version }}"
           $appName = "${{ env.APP_NAME }}"
-          $msi = "$appName-$ver-windows-x64-tauri.msi"
+          $msiPath = (Resolve-Path "$appName-$ver-windows-x64-tauri.msi").Path
           $port = 20128
           $verifyDir = "$env:RUNNER_TEMP\tauri-verify"
           New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
 
           Write-Host "===== Step 1/5: Install MSI ====="
-          $installDir = "C:\Program Files\$appName"
-          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$((Resolve-Path $msi).Path)`" /qn /norestart" -Wait
+          Write-Host "Installing $msiPath ..."
+          $installLog = "$verifyDir\msi-install.log"
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$msiPath`"", "/qn", "/norestart", "/l*v", "`"$installLog`"" -Wait -NoNewWindow
           Start-Sleep -Seconds 3
-          $appExe = Get-ChildItem -Path $installDir -Filter "$appName.exe" -Recurse | Select-Object -First 1
-          if (-not $appExe) { throw "$appName.exe not found after MSI install at $installDir" }
+          $searchRoots = @("C:\Program Files\$appName", "C:\Program Files (x86)\$appName", "$env:LOCALAPPDATA\Programs\$appName")
+          $appExe = $null
+          foreach ($root in $searchRoots) {
+            Write-Host "  Searching: $root"
+            if (Test-Path $root) {
+              $found = Get-ChildItem -Path $root -Filter "$appName.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($found) { $appExe = $found; break }
+            }
+          }
+          if (-not $appExe) {
+            Write-Host "MSI install log:"
+            Get-Content $installLog -Tail 30 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+            throw "$appName.exe not found after MSI install"
+          }
           Write-Host "Found: $($appExe.FullName)"
 
           Write-Host "===== Step 2/5: Launch app ====="
