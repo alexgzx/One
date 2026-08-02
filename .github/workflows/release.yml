@@ -1344,19 +1344,7 @@ jobs:
           if [ ! -d "src-tauri/dist" ] || [ ! -f "src-tauri/dist/index.html" ]; then
             echo "Creating minimal dist for Tauri..."
             mkdir -p src-tauri/dist
-            cat > src-tauri/dist/index.html << 'HTMLEOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>One</title>
-  <style>
-    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a1a; color: #666; font-family: system-ui, sans-serif; }
-  </style>
-</head>
-<body><div>Loading One...</div></body>
-</html>
-HTMLEOF
+            echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>One</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a1a;color:#666;font-family:system-ui,sans-serif}</style></head><body><div>Loading One...</div></body></html>' > src-tauri/dist/index.html
           fi
           ls -la src-tauri/dist/
 
