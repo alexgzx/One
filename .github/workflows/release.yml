@@ -1324,64 +1324,41 @@ jobs:
             echo "Generating default icon..."
             python3 scripts/generate-icons.py .
           fi
-          tauriIcons="src-tauri/icons"
-          mkdir -p "$tauriIcons"
-          ICONSET="/tmp/tauri-iconset"
-          ICO_TMP="/tmp/tauri-ico"
-          rm -rf "$ICONSET" "$ICO_TMP"
-          mkdir -p "$ICONSET" "$ICO_TMP"
-          SRC="assemblyai-color.png"
-          echo "=== Generating icons from $SRC ==="
-          # Generate PNGs for tauri.conf.json (used by Tauri bundler)
-          for sz in 16 32 48 64 128 256 512 1024; do
-            sips -z $sz $sz "$SRC" --out "$tauriIcons/${sz}x${sz}.png" >/dev/null
+          python3 scripts/generate-tauri-icons.py assemblyai-color.png src-tauri/icons /tmp/tauri-icon-temp
+
+      - name: Verify Tauri icons
+        run: |
+          set -e
+          echo "=== Verifying Tauri icons ==="
+          for f in icon.png icon.ico icon.icns 32x32.png 128x128.png; do
+            if [ ! -f "src-tauri/icons/$f" ]; then
+              echo "ERROR: Missing icon: $f"
+              exit 1
+            fi
+            echo "  OK src-tauri/icons/$f ($(stat -f%z src-tauri/icons/$f 2>/dev/null || wc -c < src-tauri/icons/$f) bytes)"
           done
-          cp "$tauriIcons/512x512.png" "$tauriIcons/icon.png"
-          # Generate complete iconset for iconutil (10 required sizes)
-          sips -z 16 16 "$SRC" --out "$ICONSET/icon_16x16.png" >/dev/null
-          sips -z 32 32 "$SRC" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
-          sips -z 32 32 "$SRC" --out "$ICONSET/icon_32x32.png" >/dev/null
-          sips -z 64 64 "$SRC" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
-          sips -z 128 128 "$SRC" --out "$ICONSET/icon_128x128.png" >/dev/null
-          sips -z 256 256 "$SRC" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
-          sips -z 256 256 "$SRC" --out "$ICONSET/icon_256x256.png" >/dev/null
-          sips -z 512 512 "$SRC" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
-          sips -z 512 512 "$SRC" --out "$ICONSET/icon_512x512.png" >/dev/null
-          sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
-          echo "Iconset files:" && ls -la "$ICONSET/"
-          # Build .icns with iconutil
-          iconutil -c icns "$ICONSET" -o "$tauriIcons/icon.icns"
-          echo "✅ icon.icns generated ($(du -h "$tauriIcons/icon.icns" | cut -f1))"
-          # Build .ico using Python stdlib (no pip/npm needed)
-          ICO_SIZES="16 32 48 64 128 256"
-          for sz in $ICO_SIZES; do
-            sips -z $sz $sz "$SRC" --out "$ICO_TMP/${sz}.png" >/dev/null
-          done
-          ICO_TMP="$ICO_TMP" TAURI_ICONS="$tauriIcons" python3 << 'PYEOF'
-          import struct, os
-          ico_dir = os.environ.get("ICO_TMP", "/tmp/tauri-ico")
-          out_path = os.environ.get("TAURI_ICONS", "src-tauri/icons") + "/icon.ico"
-          sizes = [16, 32, 48, 64, 128, 256]
-          pngs = []
-          for sz in sizes:
-              with open(f"{ico_dir}/{sz}.png", "rb") as f:
-                  pngs.append(f.read())
-          hdr = struct.pack("<HHH", 0, 1, len(sizes))
-          entries = b""
-          offset = 6 + 16 * len(sizes)
-          for i, sz in enumerate(sizes):
-              w = 0 if sz >= 256 else sz
-              h = 0 if sz >= 256 else sz
-              entries += struct.pack("<BBBBHHII", w, h, 0, 0, 1, 32, len(pngs[i]), offset)
-              offset += len(pngs[i])
-          with open(out_path, "wb") as f:
-              f.write(hdr + entries + b"".join(pngs))
-          print(f"✅ icon.ico generated ({offset} bytes)")
-          PYEOF
-          rm -rf "$ICONSET" "$ICO_TMP"
-          echo "=== Final Tauri icons ==="
-          ls -la "$tauriIcons/"
-          echo "✅ All Tauri icons generated successfully"
+          echo "All icons verified!"
+
+      - name: Ensure dist directory exists
+        run: |
+          if [ ! -d "src-tauri/dist" ] || [ ! -f "src-tauri/dist/index.html" ]; then
+            echo "Creating minimal dist for Tauri..."
+            mkdir -p src-tauri/dist
+            cat > src-tauri/dist/index.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>One</title>
+  <style>
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a1a; color: #666; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body><div>Loading One...</div></body>
+</html>
+HTMLEOF
+          fi
+          ls -la src-tauri/dist/
 
       - name: Prepare Tauri resources
         run: |
@@ -1396,10 +1373,38 @@ jobs:
           cp -R cli/app "$resDir/cli/app"
           [ -d cli/node_modules ] && cp -R cli/node_modules "$resDir/cli/node_modules"
           cp -R node-portable/* "$resDir/node/"
+          echo "=== Resources prepared ==="
+          ls -la "$resDir/"
+          ls -la "$resDir/cli/"
+          ls -la "$resDir/node/"
 
       - name: Build Tauri DMG
         run: |
-          tauri build --bundles dmg
+          echo "=== Starting Tauri build ==="
+          echo "Tauri version: $(tauri --version 2>/dev/null || echo 'unknown')"
+          echo "Rust version: $(rustc --version)"
+          echo "Node version: $(node --version)"
+          echo "Cargo version: $(cargo --version)"
+          echo "---"
+          echo "Tauri config:"
+          cat src-tauri/tauri.conf.json
+          echo "---"
+          echo "Cargo config:"
+          cat src-tauri/Cargo.toml
+          echo "---"
+          tauri build --bundles dmg 2>&1 | tee tauri-build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          if [ "$BUILD_EXIT" != "0" ]; then
+            echo "ERROR: Tauri build failed with exit code $BUILD_EXIT"
+            echo "=== Last 100 lines of build log ==="
+            tail -100 tauri-build.log
+            echo "=== Full build log ==="
+            cat tauri-build.log
+            exit $BUILD_EXIT
+          fi
+          echo "=== Tauri build completed ==="
+          ls -la src-tauri/target/release/bundle/dmg/
+          ls -la src-tauri/target/release/bundle/macos/ 2>/dev/null || true
 
       - name: Rename artifact
         run: |
