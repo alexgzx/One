@@ -89,6 +89,7 @@ let noBrowser = false;
 let skipUpdate = false;
 let showLog = false;
 let trayMode = false;
+let noTray = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" || args[i] === "-p") {
@@ -106,6 +107,8 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--tray" || args[i] === "-t") {
     trayMode = true;
     process.env.TRAY_MODE = "1";
+  } else if (args[i] === "--no-tray" || args[i] === "-T") {
+    noTray = true;
   } else if (args[i] === "--help" || args[i] === "-h") {
     console.log(`
 用法：${APP_NAME} [选项]
@@ -125,13 +128,6 @@ for (let i = 0; i < args.length; i++) {
     console.log(pkg.version);
     process.exit(0);
   }
-}
-
-// Electron 模式：由 Electron 主进程 spawn，必须进入托盘模式，
-// 由 CLI 子进程负责创建系统托盘图标，Electron 不再创建自己的 Tray。
-if (process.env.ONE_ELECTRON_MODE === "1" && !trayMode) {
-  trayMode = true;
-  process.env.TRAY_MODE = "1";
 }
 
 // Auto-relaunch after update: detached process has no TTY → fallback to tray
@@ -682,19 +678,17 @@ function startServer(latestVersion) {
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
 
-    const isElectronChild = process.env.ONE_ELECTRON_MODE === "1";
-
     console.log(`\n🚀 One v${pkg.version}`);
     console.log(`服务地址：http://${displayHost}:${port}`);
 
     setTimeout(() => {
-      initTrayIcon();
-      if (isElectronChild) {
-        // Electron 模式：托盘事件通过 stdout JSON 转发给 Electron 主进程
-        console.log("[One] Tray initialized (Electron mode)");
-      } else {
+      // Electron 模式：--no-tray 参数阻止 CLI 创建托盘，由 Electron 自己管理
+      if (!noTray) {
+        initTrayIcon();
         console.log("\n💡 服务已在系统托盘后台运行，可以关闭此终端窗口。");
         console.log("   右键托盘图标可打开控制台或退出。\n");
+      } else {
+        console.log("\n💡 服务已启动（无托盘模式），通过 Electron 托盘图标管理。\n");
       }
     }, 2000);
 
