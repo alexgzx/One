@@ -6,6 +6,7 @@ const readline = require("readline");
 
 let psProcess = null;
 let clickHandler = null;
+let dblClickHandler = null;
 
 /**
  * Send JSON command to PowerShell tray process via stdin
@@ -18,13 +19,15 @@ function sendCommand(cmd) {
 
 /**
  * Initialize Windows tray using PowerShell NotifyIcon
- * @param {Object} options - { iconPath, tooltip, items, onClick }
+ * @param {Object} options - { iconPath, tooltip, items, onClick, onDoubleClick }
  *   items: [{ title, enabled }]
+ *   onDoubleClick: 可选，双击托盘图标时的回调
  * @returns {Object|null} controller with sendAction/kill
  */
 function initWinTray(options) {
-  const { iconPath, tooltip, items, onClick } = options;
+  const { iconPath, tooltip, items, onClick, onDoubleClick } = options;
   clickHandler = onClick;
+  dblClickHandler = onDoubleClick;
 
   const scriptPath = path.join(__dirname, "tray.ps1");
 
@@ -53,6 +56,8 @@ function initWinTray(options) {
       const evt = JSON.parse(line);
       if (evt.type === "click" && clickHandler) {
         clickHandler(evt.index);
+      } else if (evt.type === "dblclick" && dblClickHandler) {
+        dblClickHandler();
       }
     } catch (e) {}
   });

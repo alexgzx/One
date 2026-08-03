@@ -5,11 +5,42 @@ const path = require("path");
 let trayInstance = null;
 let isWinTray = false;
 
+// ===== Electron 模式检测 =====
+// 当通过 Electron 主进程 spawn 时，会设置 ONE_ELECTRON_MODE=1 环境变量。
+// 该模式下，托盘事件不直接执行，而是通过 stdout JSON 转发给 Electron 主进程。
+const isElectronMode = process.env.ONE_ELECTRON_MODE === "1";
+// Electron 模式下的图标路径（由 Electron 主进程通过环境变量传入）
+const electronIconPath = process.env.ONE_TRAY_ICON_PATH || "";
+
+/**
+ * 向 Electron 主进程发送托盘事件（仅 Electron 模式有效）。
+ * 事件通过 stdout 写入，格式为 `[TRAY]{JSON}\n`，便于 Electron 侧解析。
+ * @param {string} type - 事件类型：toggle-window / show-window / restart-server / quit / autostart-toggle
+ * @param {Object} [extra] - 附加字段
+ */
+function emitTrayEvent(type, extra) {
+  if (!isElectronMode) return;
+  try {
+    const payload = JSON.stringify(Object.assign({ type }, extra || {}));
+    process.stdout.write(`[TRAY]${payload}\n`);
+  } catch (e) {}
+}
+
 /**
  * Get icon base64 from file — used for systray (mac/linux)
+ * Electron 模式下优先使用 ONE_TRAY_ICON_PATH 指定的图标。
  */
 function getIconBase64() {
   const isWin = process.platform === "win32";
+  // Electron 模式：优先使用外部指定的图标
+  if (isElectronMode && electronIconPath) {
+    try {
+      if (fs.existsSync(electronIconPath)) {
+        return fs.readFileSync(electronIconPath).toString("base64");
+      }
+    } catch (e) {}
+  }
+  // CLI 轻量版：使用内置图标
   const iconFile = isWin ? "icon.ico" : "icon.png";
   try {
     const iconPath = path.join(__dirname, iconFile);
@@ -22,8 +53,20 @@ function getIconBase64() {
 }
 
 /**
+ * Resolve Windows icon path.
+ * Electron 模式下优先使用 ONE_TRAY_ICON_PATH；CLI 轻量版使用内置 icon.ico。
+ */
+function getWindowsIconPath() {
+  if (isElectronMode && electronIconPath) {
+    if (fs.existsSync(electronIconPath)) {
+      return electronIconPath;
+    }
+  }
+  return path.join(__dirname, "icon.ico");
+}
+
+/**
  * Check if system tray is supported on current OS
- * Supported: macOS, Windows, Linux (with GUI)
  */
 function isTraySupported() {
   const platform = process.platform;
@@ -38,7 +81,7 @@ function isTraySupported() {
 
 /**
  * Initialize system tray with menu
- * @param {Object} options - { port, onQuit, onOpenDashboard }
+ * @param {Object} options - { port, onQuit, onOpenDashboard, onShowWindow, onToggleWindow, onRestartServer, onAutostartToggle }
  * @returns {Object|null} tray instance or null if not supported/failed
  */
 function initTray(options) {
@@ -53,15 +96,38 @@ function initTray(options) {
   return initUnixTray(options);
 }
 
+// ===== 菜单索引定义 =====
+// CLI 模式: STATUS(0) / DASHBOARD(1) / AUTOSTART(2) / QUIT(3)
+// Electron 模式: SHOW_WINDOW(0) / RESTART(1) / AUTOSTART(2) / QUIT(3)
+const MENU_INDEX_CLI = { STATUS: 0, DASHBOARD: 1, AUTOSTART: 2, QUIT: 3 };
+const MENU_INDEX_ELECTRON = { SHOW_WINDOW: 0, RESTART: 1, AUTOSTART: 2, QUIT: 3 };
+
 /**
- * Build menu items array shared between platforms
+ * Build menu items array — 根据模式构建不同菜单
+ * @param {number} port - 服务端口
+ * @param {boolean} autostartEnabled - 开机自启状态
+ * @param {boolean} electronMode - 是否为 Electron 模式
  */
-function buildMenuItems(port, autostartEnabled) {
+function buildMenuItems(port, autostartEnabled, electronMode) {
+  if (electronMode) {
+    return [
+      { title: "显示主窗口", tooltip: "显示 Electron 主窗口", enabled: true, checked: false },
+      { title: "重启服务", tooltip: "重启后端服务", enabled: true, checked: false },
+      {
+        title: "开机自启",
+        tooltip: "随系统开机启动",
+        enabled: true,
+        checked: autostartEnabled
+      },
+      { title: "退出", tooltip: "停止服务并退出", enabled: true, checked: false }
+    ];
+  }
+  // CLI 轻量版菜单（保持原样）
   return [
     { title: `One（端口 ${port}）`, tooltip: "服务运行中", enabled: false, checked: false },
     { title: "打开控制台", tooltip: "在浏览器中打开", enabled: true, checked: false },
     {
-      title: autostartEnabled ? "开机自启" : "开机自启",
+      title: "开机自启",
       tooltip: "随系统开机启动",
       enabled: true,
       checked: autostartEnabled
@@ -70,13 +136,14 @@ function buildMenuItems(port, autostartEnabled) {
   ];
 }
 
-// Menu item indexes
-const MENU_INDEX = { STATUS: 0, DASHBOARD: 1, AUTOSTART: 2, QUIT: 3 };
-
 /**
- * Get current autostart state
+ * Get current autostart state.
+ * Electron 模式下开机自启由 Electron 原生 API 管理，状态通过环境变量传入。
  */
 function getAutostartEnabled() {
+  if (isElectronMode) {
+    return process.env.ONE_AUTOSTART_ENABLED === "1";
+  }
   try {
     const { isAutoStartEnabled } = require("./autostart");
     return isAutoStartEnabled();
@@ -87,13 +154,40 @@ function getAutostartEnabled() {
 
 /**
  * Handle menu item click (shared logic)
+ * @param {number} index - 菜单项索引
+ * @param {Object} options - 调用方传入的回调
+ * @param {Function} onAutostartToggle - 自启状态切换后的回调
  */
 function handleClick(index, options, onAutostartToggle) {
   const { onQuit, onOpenDashboard, port } = options;
-  if (index === MENU_INDEX.DASHBOARD) {
+
+  if (isElectronMode) {
+    // Electron 模式：菜单事件转发给 Electron 主进程处理
+    const idx = MENU_INDEX_ELECTRON;
+    if (index === idx.SHOW_WINDOW) {
+      emitTrayEvent("show-window");
+    } else if (index === idx.RESTART) {
+      emitTrayEvent("restart-server");
+    } else if (index === idx.AUTOSTART) {
+      const newEnabled = !getAutostartEnabled();
+      emitTrayEvent("autostart-toggle", { enabled: newEnabled });
+      // 通知本地更新菜单项 checked 状态
+      if (onAutostartToggle) onAutostartToggle(newEnabled);
+    } else if (index === idx.QUIT) {
+      emitTrayEvent("quit");
+      console.log("\n👋 正在退出 ...");
+      if (onQuit) onQuit();
+      killTray();
+      setTimeout(() => process.exit(0), 500);
+    }
+    return;
+  }
+
+  // CLI 轻量版逻辑（保持原样）
+  if (index === MENU_INDEX_CLI.DASHBOARD) {
     if (onOpenDashboard) onOpenDashboard();
     else openBrowser(`http://localhost:${port}/dashboard`);
-  } else if (index === MENU_INDEX.AUTOSTART) {
+  } else if (index === MENU_INDEX_CLI.AUTOSTART) {
     const enabled = getAutostartEnabled();
     try {
       const { enableAutoStart, disableAutoStart } = require("./autostart");
@@ -101,7 +195,7 @@ function handleClick(index, options, onAutostartToggle) {
       else enableAutoStart();
       onAutostartToggle(!enabled);
     } catch (e) {}
-  } else if (index === MENU_INDEX.QUIT) {
+  } else if (index === MENU_INDEX_CLI.QUIT) {
     console.log("\n👋 正在退出 ...");
     if (onQuit) onQuit();
     killTray();
@@ -116,9 +210,9 @@ function initWindowsTray(options) {
   const { port } = options;
   try {
     const { initWinTray } = require("./trayWin");
-    const iconPath = path.join(__dirname, "icon.ico");
+    const iconPath = getWindowsIconPath();
     const autostartEnabled = getAutostartEnabled();
-    const items = buildMenuItems(port, autostartEnabled);
+    const items = buildMenuItems(port, autostartEnabled, isElectronMode);
 
     trayInstance = initWinTray({
       iconPath,
@@ -126,8 +220,14 @@ function initWindowsTray(options) {
       items,
       onClick: (index) => {
         handleClick(index, options, (newEnabled) => {
-          trayInstance.updateItem(MENU_INDEX.AUTOSTART, "开机自启", true, newEnabled);
+          trayInstance.updateItem(MENU_INDEX_ELECTRON.AUTOSTART, "开机自启", true, newEnabled);
         });
+      },
+      onDoubleClick: () => {
+        // Windows 双击：Electron 模式切换窗口显隐；CLI 模式无操作
+        if (isElectronMode) {
+          emitTrayEvent("toggle-window");
+        }
       }
     });
 
@@ -140,12 +240,6 @@ function initWindowsTray(options) {
 
 /**
  * macOS/Linux tray via systray binary
- *
- * Prefers `systray2` (active fork of `systray`, ships newer
- * getlantern/systray-portable binaries that work on macOS 14+ and Apple
- * Silicon under Rosetta). Falls back to legacy `systray@1.0.5` if systray2
- * is not available, though that binary's Mach-O headers are rejected by
- * modern dyld and the icon will not appear.
  */
 function resolveSystray() {
   let runtimeDir = null;
@@ -154,13 +248,10 @@ function resolveSystray() {
     runtimeDir = getRuntimeNodeModules();
   } catch (e) {}
 
-  // 1) systray2 in runtime dir (where ensureTrayRuntime installs it)
   if (runtimeDir) {
     try { return { mod: require(path.join(runtimeDir, "systray2")).default, isV2: true }; } catch (e) {}
   }
-  // 2) systray2 resolvable from the package's own node_modules / NODE_PATH
   try { return { mod: require("systray2").default, isV2: true }; } catch (e) {}
-  // 3) Legacy systray fallback (unlikely to render on modern macOS)
   try { return { mod: require("systray").default, isV2: false }; } catch (e) {}
   if (runtimeDir) {
     try { return { mod: require(path.join(runtimeDir, "systray")).default, isV2: false }; } catch (e) {}
@@ -169,9 +260,6 @@ function resolveSystray() {
 }
 
 function chmodTrayBin(pkgName) {
-  // systray2's npm tarball occasionally lands without +x on the bundled Go
-  // binary (observed on macOS). spawn() then fails with EACCES. Best-effort
-  // chmod on every init avoids a hard-to-diagnose silent tray failure.
   try {
     const { getRuntimeNodeModules } = require("../../../hooks/sqliteRuntime");
     const binName = process.platform === "darwin" ? "tray_darwin_release" : "tray_linux_release";
@@ -185,6 +273,12 @@ function chmodTrayBin(pkgName) {
   } catch (e) {}
 }
 
+// ===== Unix 双击检测状态 =====
+// systray2 仅暴露 click 事件，需用时间窗口区分单击与双击。
+const DBLCLICK_THRESHOLD_MS = 300;
+let lastClickTime = 0;
+let dblClickTimer = null;
+
 function initUnixTray(options) {
   const { port } = options;
   try {
@@ -195,13 +289,10 @@ function initUnixTray(options) {
     chmodTrayBin(isV2 ? "systray2" : "systray");
 
     const autostartEnabled = getAutostartEnabled();
-    const items = buildMenuItems(port, autostartEnabled);
+    const items = buildMenuItems(port, autostartEnabled, isElectronMode);
 
     const menu = {
       icon: getIconBase64(),
-      // The bundled icon.png is a full-color RGBA logo. Don't mark it as a
-      // template icon: macOS would then render it as a solid white square
-      // because template mode only uses the alpha channel.
       isTemplateIcon: false,
       title: "",
       tooltip: `One - 端口 ${port}`,
@@ -212,6 +303,32 @@ function initUnixTray(options) {
     isWinTray = false;
 
     trayInstance.onClick((action) => {
+      // ===== Electron 模式：双击检测 =====
+      // systray2 在 macOS 上的 click 事件 seq_id 为 -1 时表示空白区域点击，
+      // 即用户点击了图标本身而非菜单项。用此信号检测双击。
+      if (isElectronMode && (action.seq_id === undefined || action.seq_id < 0)) {
+        const now = Date.now();
+        if (now - lastClickTime < DBLCLICK_THRESHOLD_MS) {
+          // 双击：取消单击定时器，触发双击事件
+          if (dblClickTimer) {
+            clearTimeout(dblClickTimer);
+            dblClickTimer = null;
+          }
+          emitTrayEvent("toggle-window");
+          lastClickTime = 0;
+          return;
+        }
+        // 第一次点击：等待 DBLCLICK_THRESHOLD_MS，无第二次点击则视为单击
+        lastClickTime = now;
+        if (dblClickTimer) clearTimeout(dblClickTimer);
+        dblClickTimer = setTimeout(() => {
+          dblClickTimer = null;
+          // 单击不触发任何操作（与 macOS 原生行为一致）
+        }, DBLCLICK_THRESHOLD_MS);
+        return;
+      }
+
+      // 普通菜单项点击：走共享处理逻辑
       handleClick(action.seq_id, options, (newEnabled) => {
         trayInstance.sendAction({
           type: "update-item",
@@ -221,17 +338,14 @@ function initUnixTray(options) {
             enabled: true,
             checked: newEnabled
           },
-          seq_id: MENU_INDEX.AUTOSTART
+          seq_id: isElectronMode ? MENU_INDEX_ELECTRON.AUTOSTART : MENU_INDEX_CLI.AUTOSTART
         });
       });
     });
 
     if (isV2) {
-      // systray2 exposes a ready() promise instead of onReady/onError. Surface
-      // failures (binary crash, EACCES, etc.) so users can see why the icon
-      // didn't appear instead of getting a misleading "running in tray" log.
       trayInstance.ready().catch((err) => {
-        process.stderr.write(`[9router] tray failed to start: ${err && err.message ? err.message : err}\n`);
+        process.stderr.write(`[One] tray failed to start: ${err && err.message ? err.message : err}\n`);
       });
     } else {
       trayInstance.onReady(() => {});
@@ -240,15 +354,13 @@ function initUnixTray(options) {
 
     return trayInstance;
   } catch (err) {
-    process.stderr.write(`[9router] tray init error: ${err.message}\n`);
+    process.stderr.write(`[One] tray init error: ${err.message}\n`);
     return null;
   }
 }
 
 /**
  * Kill tray, wait Go binary fully exit (returns Promise).
- * Critical for hide-to-tray: macOS must release NSStatusItem before bgProcess
- * spawns a new tray, otherwise the new icon silently fails to register.
  */
 function killTray() {
   const instance = trayInstance;
@@ -261,15 +373,11 @@ function killTray() {
     return Promise.resolve();
   }
 
-  // Unix: get the Go tray child process handle.
   let proc = null;
   try {
     proc = instance._process || (typeof instance.process === "function" ? instance.process() : null);
   } catch (e) {}
 
-  // Graceful shutdown: send {type:"exit"} via IPC so the Go binary can call
-  // systray.Quit() and release NSStatusItem. SIGKILL leaves a ghost icon on
-  // the macOS menubar until logout, causing duplicate icons after re-spawn.
   const gracefulQuit = () => { try { instance.kill(true); } catch (e) {} };
   const closeIpc = () => { try { instance.kill(false); } catch (e) {} };
 
@@ -286,11 +394,9 @@ function killTray() {
     proc.once("exit", finish);
     gracefulQuit();
 
-    // Escalate: SIGTERM after 800ms, SIGKILL after 1600ms if still alive.
     setTimeout(() => { try { process.kill(proc.pid, 0); proc.kill("SIGTERM"); } catch (e) {} }, 800);
     setTimeout(() => { try { process.kill(proc.pid, 0); proc.kill("SIGKILL"); } catch (e) {} }, 1600);
 
-    // Fallback poll in case "exit" never fires (detached child, pipe closed)
     const deadline = Date.now() + 3000;
     const poll = setInterval(() => {
       try { process.kill(proc.pid, 0); } catch { clearInterval(poll); finish(); return; }
@@ -300,7 +406,7 @@ function killTray() {
 }
 
 /**
- * Open browser
+ * Open browser (仅 CLI 轻量版使用)
  */
 function openBrowser(url) {
   const platform = process.platform;

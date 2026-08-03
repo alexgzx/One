@@ -127,6 +127,13 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
+// Electron 模式：由 Electron 主进程 spawn，必须进入托盘模式，
+// 由 CLI 子进程负责创建系统托盘图标，Electron 不再创建自己的 Tray。
+if (process.env.ONE_ELECTRON_MODE === "1" && !trayMode) {
+  trayMode = true;
+  process.env.TRAY_MODE = "1";
+}
+
 // Auto-relaunch after update: detached process has no TTY → fallback to tray
 if (skipUpdate && !trayMode && !process.stdin.isTTY) {
   trayMode = true;
@@ -675,13 +682,20 @@ function startServer(latestVersion) {
     process.removeAllListeners("SIGHUP");
     process.on("SIGHUP", () => {});
 
+    const isElectronChild = process.env.ONE_ELECTRON_MODE === "1";
+
     console.log(`\n🚀 One v${pkg.version}`);
     console.log(`服务地址：http://${displayHost}:${port}`);
 
     setTimeout(() => {
       initTrayIcon();
-      console.log("\n💡 服务已在系统托盘后台运行，可以关闭此终端窗口。");
-      console.log("   右键托盘图标可打开控制台或退出。\n");
+      if (isElectronChild) {
+        // Electron 模式：托盘事件通过 stdout JSON 转发给 Electron 主进程
+        console.log("[One] Tray initialized (Electron mode)");
+      } else {
+        console.log("\n💡 服务已在系统托盘后台运行，可以关闭此终端窗口。");
+        console.log("   右键托盘图标可打开控制台或退出。\n");
+      }
     }, 2000);
 
     return;

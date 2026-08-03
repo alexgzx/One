@@ -949,7 +949,25 @@ jobs:
           $verifyDir = "$env:RUNNER_TEMP\electron-verify"
           New-Item -ItemType Directory -Force -Path $verifyDir | Out-Null
 
-          Write-Host "===== Step 1/5: Install NSIS ====="
+          # 截图辅助函数：捕获主屏幕到 PNG 文件
+          function Capture-Screen($filePath) {
+            try {
+              Add-Type -AssemblyName System.Windows.Forms
+              Add-Type -AssemblyName System.Drawing
+              $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+              $bmp.Save($filePath, [System.Drawing.Imaging.ImageFormat]::Png)
+              $g.Dispose()
+              $bmp.Dispose()
+              Write-Host "  Screenshot saved: $filePath"
+            } catch {
+              Write-Host "  Screenshot failed: $($_.Exception.Message)"
+            }
+          }
+
+          Write-Host "===== Step 1/7: Install NSIS ====="
           $installDir = "$env:RUNNER_TEMP\electron-install"
           New-Item -ItemType Directory -Force -Path $installDir | Out-Null
           Write-Host "Installing $installer to $installDir ..."
@@ -972,12 +990,13 @@ jobs:
           }
           Write-Host "Found: $($appExe.FullName)"
 
-          Write-Host "===== Step 2/5: Launch app ====="
-          $proc = Start-Process -FilePath $appExe.FullName -PassThru
+          Write-Host "===== Step 2/7: Launch app ====="
+          $logFile = "$verifyDir\server.log"
+          $proc = Start-Process -FilePath $appExe.FullName -PassThru -RedirectStandardOutput $logFile -RedirectStandardError "$verifyDir\server-stderr.log"
           Write-Host "Launched PID=$($proc.Id)"
           Start-Sleep -Seconds 5
 
-          Write-Host "===== Step 3/5: Polling port $port (max 90s) ====="
+          Write-Host "===== Step 3/7: Polling port $port (max 90s) ====="
           $up = $false
           for ($i = 1; $i -le 90; $i++) {
             try {
@@ -991,11 +1010,16 @@ jobs:
           }
           if (-not $up) {
             Write-Host "ERROR: HTTP endpoint timeout"
+            Capture-Screen "$verifyDir\01-server-failed.png"
+            Write-Host "===== Server log (last 100 lines) ====="
+            if (Test-Path $logFile) { Get-Content $logFile -Tail 100 | ForEach-Object { Write-Host $_ } }
+            Write-Host "===== Server stderr (last 50 lines) ====="
+            if (Test-Path "$verifyDir\server-stderr.log") { Get-Content "$verifyDir\server-stderr.log" -Tail 50 | ForEach-Object { Write-Host $_ } }
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             throw "HTTP endpoint timeout"
           }
 
-          Write-Host "===== Step 4/5: Verify HTTP service ====="
+          Write-Host "===== Step 4/7: Verify HTTP service ====="
           $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
           $homeResp.Content | Out-File "$verifyDir\home.html"
           Write-Host "Home page: $($homeResp.StatusCode)"
@@ -1005,7 +1029,21 @@ jobs:
             Write-Host "Dashboard: $($dashResp.StatusCode)"
           } catch { Write-Host "WARNING: /dashboard not 2xx" }
 
-          Write-Host "===== Step 5/5: Cleanup ====="
+          Write-Host "===== Step 5/7: Screenshots ====="
+          Write-Host "Capture 1: App running"
+          Capture-Screen "$verifyDir\01-app-running.png"
+          Start-Sleep -Seconds 2
+          Write-Host "Capture 2: Service status"
+          Capture-Screen "$verifyDir\02-service-status.png"
+          Write-Host "Screenshots captured"
+
+          Write-Host "===== Step 6/7: Collect logs ====="
+          Write-Host "===== Server log (last 60 lines) ====="
+          if (Test-Path $logFile) { Get-Content $logFile -Tail 60 | ForEach-Object { Write-Host $_ } }
+          Write-Host "===== Server stderr (last 30 lines) ====="
+          if (Test-Path "$verifyDir\server-stderr.log") { Get-Content "$verifyDir\server-stderr.log" -Tail 30 | ForEach-Object { Write-Host $_ } }
+
+          Write-Host "===== Step 7/7: Cleanup ====="
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
           Get-Process -Name "$appName*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 2

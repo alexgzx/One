@@ -35,6 +35,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "resources/build",
+        "to": "build",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

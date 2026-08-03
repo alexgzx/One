@@ -1,5 +1,6 @@
 # One tray icon for Windows using NotifyIcon
 # IPC: stdin JSON commands, stdout JSON events
+# 支持事件: click / dblclick / ready / error
 param([string]$IconPath, [string]$Tooltip)
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -50,6 +51,11 @@ function Set-Tooltip($text) {
   if ($text.Length -gt 63) { $text = $text.Substring(0, 63) }
   $script:notifyIcon.Text = $text
 }
+
+# 双击事件：NotifyIcon 原生支持 MouseDoubleClick，无需时间窗口判定
+$script:notifyIcon.Add_MouseDoubleClick({
+  Write-Event @{ type = "dblclick" }
+})
 
 # Background reader thread polls stdin via timer on UI thread
 $script:timer = New-Object System.Windows.Forms.Timer
