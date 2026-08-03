@@ -1,13 +1,18 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, BrowserView, Tray, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
+let browserView = null;
 let tray = null;
 let serverProcess = null;
 let serverPort = 20128;
 let isQuitting = false;
+
+// BrowserView 布局常量
+const SIDEBAR_WIDTH = 240;
+const TOPBAR_HEIGHT = 48;
 
 function getResourcePath() {
   if (app.isPackaged) {
@@ -59,6 +64,104 @@ function getIconPath() {
   }
   return iconMac;
 }
+
+// ===== BrowserView 管理 =====
+
+/**
+ * 创建 BrowserView 并加载指定 URL
+ */
+function createBrowserView(url) {
+  if (!mainWindow) return;
+
+  // 如果已存在 BrowserView，先关闭
+  if (browserView) {
+    closeBrowserView();
+  }
+
+  const bounds = mainWindow.getBounds();
+
+  browserView = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    }
+  });
+
+  mainWindow.setBrowserView(browserView);
+
+  // 设置 BrowserView 的 bounds（避开侧边栏和顶部栏）
+  browserView.setBounds({
+    x: SIDEBAR_WIDTH,
+    y: TOPBAR_HEIGHT,
+    width: bounds.width - SIDEBAR_WIDTH,
+    height: bounds.height - TOPBAR_HEIGHT
+  });
+
+  // 加载 URL
+  browserView.webContents.loadURL(url);
+
+  console.log(`[BrowserView] Created and loading: ${url}`);
+}
+
+/**
+ * 关闭 BrowserView
+ */
+function closeBrowserView() {
+  if (browserView) {
+    mainWindow.removeBrowserView(browserView);
+    browserView.webContents.destroy();
+    browserView = null;
+    console.log('[BrowserView] Closed');
+  }
+}
+
+/**
+ * BrowserView 导航到新 URL
+ */
+function navigateBrowserView(url) {
+  if (browserView) {
+    browserView.webContents.loadURL(url);
+    console.log(`[BrowserView] Navigated to: ${url}`);
+  }
+}
+
+/**
+ * 检查 BrowserView 是否可后退
+ */
+function canGoBackBrowserView() {
+  if (browserView) {
+    return browserView.webContents.canGoBack();
+  }
+  return false;
+}
+
+/**
+ * BrowserView 后退
+ */
+function goBackBrowserView() {
+  if (browserView && browserView.webContents.canGoBack()) {
+    browserView.webContents.goBack();
+    console.log('[BrowserView] Went back');
+  }
+}
+
+/**
+ * 更新 BrowserView 的 bounds（窗口大小变化时调用）
+ */
+function updateBrowserViewBounds() {
+  if (browserView && mainWindow) {
+    const bounds = mainWindow.getBounds();
+    browserView.setBounds({
+      x: SIDEBAR_WIDTH,
+      y: TOPBAR_HEIGHT,
+      width: bounds.width - SIDEBAR_WIDTH,
+      height: bounds.height - TOPBAR_HEIGHT
+    });
+  }
+}
+
+// ===== 服务管理 =====
 
 function startServer() {
   return new Promise((resolve, reject) => {
@@ -151,6 +254,8 @@ function stopServer() {
   });
 }
 
+// ===== 窗口管理 =====
+
 function createMainWindow() {
   // 解析窗口图标
   let windowIconPath;
@@ -188,6 +293,18 @@ function createMainWindow() {
     if (!isQuitting) {
       e.preventDefault();
       mainWindow.hide();
+    }
+  });
+
+  // 窗口大小变化时更新 BrowserView bounds
+  mainWindow.on('resize', () => {
+    updateBrowserViewBounds();
+  });
+
+  // 窗口获得焦点时，BrowserView 也获得焦点
+  mainWindow.on('focus', () => {
+    if (browserView) {
+      browserView.webContents.focus();
     }
   });
 
@@ -297,6 +414,36 @@ function setAutoStartEnabled(enabled) {
   }
 }
 
+// ===== IPC 处理器 =====
+
+ipcMain.handle('get-server-port', () => serverPort);
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+// BrowserView IPC 处理器
+ipcMain.handle('browser-view:open', (event, url) => {
+  createBrowserView(url);
+  return { success: true };
+});
+
+ipcMain.handle('browser-view:close', () => {
+  closeBrowserView();
+  return { success: true };
+});
+
+ipcMain.handle('browser-view:navigate', (event, url) => {
+  navigateBrowserView(url);
+  return { success: true };
+});
+
+ipcMain.handle('browser-view:can-go-back', () => {
+  return canGoBackBrowserView();
+});
+
+ipcMain.handle('browser-view:go-back', () => {
+  goBackBrowserView();
+  return { success: true };
+});
+
 // ===== 应用生命周期 =====
 
 app.whenReady().then(async () => {
@@ -330,6 +477,3 @@ app.on('activate', () => {
     mainWindow.show();
   }
 });
-
-ipcMain.handle('get-server-port', () => serverPort);
-ipcMain.handle('get-app-version', () => app.getVersion());

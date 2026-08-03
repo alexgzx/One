@@ -31,6 +31,7 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
 } from "lucide-react";
 
 // ============================================================
@@ -76,6 +77,7 @@ const iconMap = {
   translate: Languages,
   settings: Settings,
   perm_media: ImageIcon,
+  sparkles: Sparkles,
 };
 
 // 媒体子项图标映射
@@ -98,6 +100,7 @@ const labelMap = {
   combos: "组合",
   usage: "使用情况",
   quota: "配额跟踪器",
+  vibe_coding: "Vibe coding",
   console_log: "控制台日志",
   translator: "翻译器",
   settings: "设置",
@@ -126,6 +129,7 @@ const navItems = [
   { href: "/dashboard/combos", id: "combos", icon: "layers" },
   { href: "/dashboard/usage", id: "usage", icon: "bar_chart" },
   { href: "/dashboard/quota", id: "quota", icon: "data_usage" },
+  { href: "/dashboard/vibe-coding", id: "vibe_coding", icon: "sparkles" },
 ];
 
 const debugItems = [
