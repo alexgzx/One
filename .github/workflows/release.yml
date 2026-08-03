@@ -969,12 +969,25 @@ jobs:
 
           Write-Host "===== Step 1/7: Install NSIS ====="
           $installDir = "$env:RUNNER_TEMP\electron-install"
+          Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $installDir | Out-Null
           Write-Host "Installing $installer to $installDir ..."
-          Start-Process -FilePath $installer -ArgumentList "/S", "/D=$installDir" -Wait -NoNewWindow
+          $installProc = Start-Process -FilePath $installer -ArgumentList "/S", "/D=$installDir" -Wait -PassThru -NoNewWindow
+          Write-Host "Installer exit code: $($installProc.ExitCode)"
           Start-Sleep -Seconds 3
-          Write-Host "Searching for $appName.exe ..."
-          $searchRoots = @($installDir, "$env:LOCALAPPDATA\Programs\$appName", "$env:LOCALAPPDATA\$appName", "$env:ProgramFiles\$appName")
+
+          # 诊断：显示安装目录内容
+          Write-Host "Diagnostic: Contents of $installDir :"
+          Get-ChildItem -Path $installDir -Recurse -ErrorAction SilentlyContinue | Select-Object -First 30 | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+          # 多路径搜索：覆盖自定义安装目录 + electron-builder 默认安装路径
+          $searchRoots = @(
+            $installDir,
+            "$env:LOCALAPPDATA\Programs\$appName",
+            "$env:LOCALAPPDATA\$appName",
+            "$env:ProgramFiles\$appName",
+            "$env:ProgramFiles(x86)\$appName"
+          )
           $appExe = $null
           foreach ($root in $searchRoots) {
             Write-Host "  Searching: $root"
@@ -983,9 +996,24 @@ jobs:
               if ($found) { $appExe = $found; break }
             }
           }
+
+          # 兜底：全盘搜索 One.exe（限定在常见安装目录）
+          if (-not $appExe) {
+            Write-Host "Fallback: Searching for $appName.exe across common install paths..."
+            $fallbackRoots = @($env:LOCALAPPDATA, "$env:ProgramFiles", "${env:ProgramFiles(x86)}", "$env:RUNNER_TEMP")
+            foreach ($root in $fallbackRoots) {
+              if (Test-Path $root) {
+                $found = Get-ChildItem -Path $root -Filter "$appName.exe" -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($found) { $appExe = $found; Write-Host "  Found via fallback: $($found.FullName)"; break }
+              }
+            }
+          }
+
           if (-not $appExe) {
             Write-Host "LS of installDir:"
             Get-ChildItem -Path $installDir -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
+            Write-Host "LS of LOCALAPPDATA\Programs:"
+            if (Test-Path "$env:LOCALAPPDATA\Programs") { Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" } }
             throw "$appName.exe not found after NSIS install"
           }
           Write-Host "Found: $($appExe.FullName)"
