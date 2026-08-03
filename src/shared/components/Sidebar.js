@@ -133,15 +133,11 @@ const debugItems = [
   { href: "/dashboard/translator", id: "translator", icon: "translate" },
 ];
 
-function resolveIcon(iconName) {
-  return iconMap[iconName] || mediaIconMap[iconName] || Layers3;
-}
-
 // ============================================================
 // 导航项（支持 collapsed 模式）
 // ============================================================
 function NavItem({ href, icon, label, active, onClose, indent = false, collapsed = false }) {
-  const IconComponent = resolveIcon(icon);
+  const IconComponent = iconMap[icon] || mediaIconMap[icon] || Layers3;
 
   if (collapsed) {
     return (
