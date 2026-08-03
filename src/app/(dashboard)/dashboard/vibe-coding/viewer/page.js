@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 
-export default function VibeCodingViewerPage() {
+function VibeCodingViewerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const iframeRef = useRef(null);
@@ -16,11 +16,9 @@ export default function VibeCodingViewerPage() {
   const title = searchParams.get("title") || "Vibe coding";
 
   useEffect(() => {
-    // 检测是否在 Electron 环境中
     const electronAPI = window.electronAPI;
     if (electronAPI) {
       setIsElectron(true);
-      // Electron 模式：通知主进程打开 BrowserView
       electronAPI.openBrowserView(url);
       setIsLoading(false);
     }
@@ -33,7 +31,6 @@ export default function VibeCodingViewerPage() {
     router.push("/dashboard/vibe-coding");
   };
 
-  // 加载状态
   if (isLoading && !isElectron) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -62,13 +59,11 @@ export default function VibeCodingViewerPage() {
 
       {/* 内容区域 */}
       <div className="flex-1 relative">
-        {/* Electron 模式：显示提示信息，实际内容由 BrowserView 渲染 */}
         {isElectron ? (
           <div className="flex items-center justify-center h-full text-zinc-400 dark:text-zinc-500">
             <p>网页已在独立进程中打开</p>
           </div>
         ) : (
-          /* CLI 轻量版：使用 iframe 内嵌 */
           <iframe
             ref={iframeRef}
             src={url}
@@ -80,5 +75,17 @@ export default function VibeCodingViewerPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VibeCodingViewerPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-zinc-500 dark:text-zinc-400">加载中...</div>
+      </div>
+    }>
+      <VibeCodingViewerContent />
+    </Suspense>
   );
 }
