@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -314,6 +314,42 @@ MediaProvidersGroup.propTypes = {
 export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }) {
   const pathname = usePathname();
   const [enableTranslator, setEnableTranslator] = useState(false);
+  const sidebarRef = useRef(null);
+
+  // 检测侧边栏宽度变化并通知 Electron
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    const notifyWidth = () => {
+      const width = el.getBoundingClientRect().width;
+      if (window.electronAPI && width > 0) {
+        window.electronAPI.setSidebarWidth(Math.round(width));
+      }
+    };
+
+    // 初始通知
+    const timer = setTimeout(notifyWidth, 100);
+
+    // ResizeObserver 监听宽度变化
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        if (window.electronAPI && width > 0) {
+          window.electronAPI.setSidebarWidth(Math.round(width));
+        }
+      }
+    });
+    observer.observe(el);
+
+    // 折叠状态变化时也通知
+    notifyWidth();
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [collapsed]);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -333,6 +369,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
         "relative flex flex-col min-h-full border-r border-zinc-200/80 dark:border-zinc-800/80",
         "bg-white/90 dark:bg-zinc-900/90 transition-[width] duration-300 ease-in-out",

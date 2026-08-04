@@ -10,9 +10,9 @@ let serverProcess = null;
 let serverPort = 20128;
 let isQuitting = false;
 
-// BrowserView 布局常量
-const SIDEBAR_WIDTH = 240;
-const TOPBAR_HEIGHT = 48;
+// BrowserView 布局变量（侧边栏宽度动态更新）
+let sidebarWidth = 240;
+const TOPBAR_HEIGHT = 96;  // 48px 顶栏 + 48px 返回按钮
 
 function getResourcePath() {
   if (app.isPackaged) {
@@ -92,9 +92,9 @@ function createBrowserView(url) {
 
   // 设置 BrowserView 的 bounds（避开侧边栏和顶部栏）
   browserView.setBounds({
-    x: SIDEBAR_WIDTH,
+    x: sidebarWidth,
     y: TOPBAR_HEIGHT,
-    width: bounds.width - SIDEBAR_WIDTH,
+    width: bounds.width - sidebarWidth,
     height: bounds.height - TOPBAR_HEIGHT
   });
 
@@ -153,9 +153,9 @@ function updateBrowserViewBounds() {
   if (browserView && mainWindow) {
     const bounds = mainWindow.getBounds();
     browserView.setBounds({
-      x: SIDEBAR_WIDTH,
+      x: sidebarWidth,
       y: TOPBAR_HEIGHT,
-      width: bounds.width - SIDEBAR_WIDTH,
+      width: bounds.width - sidebarWidth,
       height: bounds.height - TOPBAR_HEIGHT
     });
   }
@@ -442,6 +442,12 @@ ipcMain.handle('browser-view:can-go-back', () => {
 ipcMain.handle('browser-view:go-back', () => {
   goBackBrowserView();
   return { success: true };
+});
+
+ipcMain.handle('sidebar:set-width', (event, width) => {
+  sidebarWidth = Math.max(68, Math.min(300, parseInt(width) || 240));
+  updateBrowserViewBounds();
+  return { success: true, width: sidebarWidth };
 });
 
 // ===== 应用生命周期 =====

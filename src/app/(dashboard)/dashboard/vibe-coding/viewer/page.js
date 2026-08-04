@@ -40,9 +40,9 @@ function VibeCodingViewerContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* 顶部返回按钮 */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="flex flex-col h-screen relative">
+      {/* 顶部返回按钮 - z-10 确保不被 iframe 覆盖 */}
+      <div className="relative z-10 flex items-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <button
           onClick={handleBack}
           className={cn(
@@ -57,7 +57,7 @@ function VibeCodingViewerContent() {
         </button>
       </div>
 
-      {/* 内容区域 */}
+      {/* 内容区域 - iframe 使用 absolute 覆盖剩余空间 */}
       <div className="flex-1 relative">
         {isElectron ? (
           <div className="flex items-center justify-center h-full text-zinc-400 dark:text-zinc-500">
@@ -67,7 +67,7 @@ function VibeCodingViewerContent() {
           <iframe
             ref={iframeRef}
             src={url}
-            className="w-full h-full border-0"
+            className="absolute inset-0 w-full h-full border-0"
             title={title}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone"
