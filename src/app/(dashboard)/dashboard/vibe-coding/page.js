@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, GripVertical } from "lucide-react";
+import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, Palette, GripVertical } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import Draggable from "react-draggable";
 
@@ -63,6 +63,14 @@ const vibeCards = [
     icon: Radar,
     bgColor: "bg-rose-50 dark:bg-rose-500/15",
     iconColor: "text-rose-500 dark:text-rose-400",
+  },
+  {
+    id: "frontend-design-templates",
+    title: "前端设计模板参考",
+    url: "https://www.vibehub.xin/styles",
+    icon: Palette,
+    bgColor: "bg-teal-50 dark:bg-teal-500/15",
+    iconColor: "text-teal-500 dark:text-teal-400",
   },
 ];
 

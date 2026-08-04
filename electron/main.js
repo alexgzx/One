@@ -187,7 +187,7 @@ function waitForServerHealth(port, maxAttempts = 60, intervalMs = 1000) {
 
     const checkHealth = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
         res.destroy();
         if (res.statusCode === 200) {
           console.log(`[Server] Health check passed (attempt ${attempts}/${maxAttempts})`);

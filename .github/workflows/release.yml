@@ -446,6 +446,13 @@ jobs:
           $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
           $homeResp.Content | Out-File "$verifyDir\home.html"
           Write-Host "Home page: $($homeResp.StatusCode)"
+          # 健康检查验证：确保 /api/health 端点正常
+          $healthResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/health" -UseBasicParsing -TimeoutSec 5
+          $healthResp.Content | Out-File "$verifyDir\health.json"
+          Write-Host "Health check /api/health: $($healthResp.StatusCode) - $($healthResp.Content)"
+          if ($healthResp.Content -notmatch '"ok"') {
+            Write-Host "WARNING: /api/health response does not contain 'ok'"
+          }
           try {
             $dashResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/dashboard" -UseBasicParsing -TimeoutSec 5
             $dashResp.Content | Out-File "$verifyDir\dashboard.html"
@@ -714,6 +721,17 @@ jobs:
           echo "🔎 校验关键路由"
           set -e
           curl -fsS -o "$RUNNER_TEMP/verify/home.html" "http://127.0.0.1:$PORT/"
+          # 健康检查验证：确保 /api/health 端点正常
+          echo -n "🔍 健康检查 /api/health: "
+          HEALTH_RESP=$(curl -fsS -w "\n%{http_code}" "http://127.0.0.1:$PORT/api/health" -o "$RUNNER_TEMP/verify/health.json")
+          HEALTH_BODY=$(echo "$HEALTH_RESP" | head -1)
+          HEALTH_CODE=$(echo "$HEALTH_RESP" | tail -1)
+          echo "状态码: $HEALTH_CODE, 响应: $HEALTH_BODY"
+          if echo "$HEALTH_BODY" | grep -q '"ok"'; then
+            echo "✅ 健康检查通过"
+          else
+            echo "⚠️ 健康检查响应异常"
+          fi
           curl -fsS -o "$RUNNER_TEMP/verify/dashboard.html" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard 非 2xx"
           curl -fsS -o "$RUNNER_TEMP/verify/favicon.svg" "http://127.0.0.1:$PORT/favicon.svg" || true
           set +e
@@ -1051,6 +1069,13 @@ jobs:
           $homeResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
           $homeResp.Content | Out-File "$verifyDir\home.html"
           Write-Host "Home page: $($homeResp.StatusCode)"
+          # 健康检查验证：确保 /api/health 端点正常
+          $healthResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/health" -UseBasicParsing -TimeoutSec 5
+          $healthResp.Content | Out-File "$verifyDir\health.json"
+          Write-Host "Health check /api/health: $($healthResp.StatusCode) - $($healthResp.Content)"
+          if ($healthResp.Content -notmatch '"ok"') {
+            Write-Host "WARNING: /api/health response does not contain 'ok'"
+          }
           try {
             $dashResp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/dashboard" -UseBasicParsing -TimeoutSec 5
             $dashResp.Content | Out-File "$verifyDir\dashboard.html"
@@ -1316,6 +1341,17 @@ jobs:
 
           echo "===== Step 4/6: Verify HTTP service ====="
           curl -fsS -o "$RUNNER_TEMP/electron-verify/home.html" "http://127.0.0.1:$PORT/"
+          # 健康检查验证：确保 /api/health 端点正常
+          echo -n "🔍 健康检查 /api/health: "
+          HEALTH_RESP=$(curl -fsS -w "\n%{http_code}" "http://127.0.0.1:$PORT/api/health" -o "$RUNNER_TEMP/electron-verify/health.json")
+          HEALTH_BODY=$(echo "$HEALTH_RESP" | head -1)
+          HEALTH_CODE=$(echo "$HEALTH_RESP" | tail -1)
+          echo "状态码: $HEALTH_CODE, 响应: $HEALTH_BODY"
+          if echo "$HEALTH_BODY" | grep -q '"ok"'; then
+            echo "✅ 健康检查通过"
+          else
+            echo "⚠️ 健康检查响应异常"
+          fi
           curl -fsS -o "$RUNNER_TEMP/electron-verify/dashboard.html" "http://127.0.0.1:$PORT/dashboard" || echo "⚠️ /dashboard not 2xx"
           echo "✅ HTTP service verified"
 
