@@ -11,7 +11,7 @@ Write-Host "[One-Cleanup] Starting pre-install process cleanup..."
 
 # Step 1: Kill One.exe main process
 Write-Host "[One-Cleanup] Killing $appName.exe processes..."
-$oneProcs = Get-Process -Name "$appName*" -ErrorAction SilentlyContinue
+$oneProcs = Get-Process -Name "$appName" -ErrorAction SilentlyContinue
 foreach ($proc in $oneProcs) {
     try {
         Stop-Process -Id $proc.Id -Force -ErrorAction Stop
@@ -37,13 +37,13 @@ Write-Host "[One-Cleanup] Checking port $port..."
 $netstatOutput = netstat -ano | findstr "LISTENING" | findstr ":$port"
 if ($netstatOutput) {
     $parts = $netstatOutput.Trim() -split '\s+'
-    $pid = $parts[-1]
-    if ($pid -match '^\d+$') {
+    $procId = $parts[-1]
+    if ($procId -match '^\d+$') {
         try {
-            Stop-Process -Id ([int]$pid) -Force -ErrorAction Stop
-            Write-Host "  Killed PID=$pid occupying port $port"
+            Stop-Process -Id ([int]$procId) -Force -ErrorAction Stop
+            Write-Host "  Killed PID=$procId occupying port $port"
         } catch {
-            Write-Host "  Failed to kill PID=$pid : $_"
+            Write-Host "  Failed to kill PID=$procId : $_"
         }
     }
 } else {

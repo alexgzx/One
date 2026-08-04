@@ -4,9 +4,9 @@
 ; ============================================================
 
 !macro customInit
-  ; Extract cleanup script from installer to plugins temp directory
   InitPluginsDir
-  File "installer-cleanup.ps1"
+  SetOutPath "$PLUGINSDIR"
+  File "${PROJECT_DIR}\installer-cleanup.ps1"
 !macroend
 
 !macro customInstall
