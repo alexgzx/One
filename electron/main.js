@@ -163,6 +163,50 @@ function updateBrowserViewBounds() {
 
 // ===== 服务管理 =====
 
+/**
+ * 通过 HTTP 健康检查等待 server 就绪
+ * 替代不可靠的 stdout 关键字匹配（CLI 输出中文/格式不固定）
+ */
+function waitForServerHealth(port, maxAttempts = 60, intervalMs = 1000) {
+  const http = require('http');
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+
+    const checkHealth = () => {
+      attempts++;
+      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+        res.destroy();
+        if (res.statusCode === 200) {
+          console.log(`[Server] Health check passed (attempt ${attempts}/${maxAttempts})`);
+          resolve();
+        } else {
+          retryOrFail(new Error(`Health check returned status ${res.statusCode}`));
+        }
+      });
+
+      req.on('error', (err) => {
+        retryOrFail(err);
+      });
+
+      req.setTimeout(2000, () => {
+        req.destroy();
+        retryOrFail(new Error('Health check timeout'));
+      });
+    };
+
+    const retryOrFail = (err) => {
+      if (attempts >= maxAttempts) {
+        reject(new Error(`Server failed to start after ${maxAttempts} attempts. Last error: ${err.message}`));
+        return;
+      }
+      setTimeout(checkHealth, intervalMs);
+    };
+
+    // 首次检查延迟 1 秒，给 server 启动时间
+    setTimeout(checkHealth, 1000);
+  });
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const nodePath = getNodePath();
@@ -191,42 +235,29 @@ function startServer() {
       }
     });
 
-    let output = '';
-    let timeout;
-
+    // 仅记录日志，不再依赖 stdout 关键字判断就绪
     serverProcess.stdout.on('data', (data) => {
       const text = data.toString();
-      output += text;
       console.log(`[Server] ${text.trim()}`);
-
-      if (text.includes('Server started') || text.includes('listening') || text.includes('ready')) {
-        clearTimeout(timeout);
-        resolve();
-      }
     });
 
     serverProcess.stderr.on('data', (data) => {
       console.error(`[Server Error] ${data.toString().trim()}`);
     });
 
-    timeout = setTimeout(() => {
-      if (serverProcess && !serverProcess.killed) {
-        resolve();
-      } else {
-        reject(new Error('Server failed to start'));
-      }
-    }, 15000);
-
     serverProcess.on('error', (err) => {
-      clearTimeout(timeout);
       reject(err);
     });
 
     serverProcess.on('exit', (code) => {
-      if (!isQuitting) {
-        console.log(`Server exited with code: ${code}`);
+      if (!isQuitting && code !== 0 && code !== null) {
+        reject(new Error(`Server process exited with code ${code} before becoming ready`));
       }
     });
+
+    // 通过 HTTP 健康检查等待 server 真正就绪（替代 stdout 关键字匹配）
+    // 60 次 × 1 秒 = 最长等待 60 秒，覆盖 Next.js 首次启动编译时间
+    waitForServerHealth(serverPort, 60, 1000).then(resolve).catch(reject);
   });
 }
 
