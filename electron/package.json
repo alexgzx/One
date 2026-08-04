@@ -60,7 +60,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "One"
+      "shortcutName": "One",
+      "include": "installer.nsh"
     },
     "mac": {
       "target": [
