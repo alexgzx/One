@@ -1,7 +1,23 @@
-const { app, BrowserWindow, BrowserView, Tray, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, BrowserView, Tray, Menu, ipcMain, shell, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
+
+// ===== 启动日志 =====
+const LOG_DIR = path.join(app.getPath('userData'), 'logs');
+if (!fs.existsSync(LOG_DIR)) {
+  try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch {}
+}
+const LOG_FILE = path.join(LOG_DIR, `electron-${Date.now()}.log`);
+
+function log(msg) {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${msg}`;
+  console.log(line);
+  try {
+    fs.appendFileSync(LOG_FILE, line + '\n');
+  } catch {}
+}
 
 let mainWindow = null;
 let browserView = null;
@@ -39,7 +55,7 @@ function getCliPath() {
 
 /**
  * 获取托盘图标路径
- * 强制使用 assemblyai-color.png 派生的图标，缺失时抛错（无回退）
+ * 优先使用 assemblyai-color.png 派生图标；缺失时记录警告并返回 null（由调用方降级处理）
  */
 function getIconPath() {
   const resourcePath = getResourcePath();
@@ -49,18 +65,15 @@ function getIconPath() {
 
   if (process.platform === 'win32') {
     if (!fs.existsSync(iconWin)) {
-      const msg = `[Electron] Required tray icon not found: ${iconWin}. Build cannot proceed without assemblyai-color.png derived icon.`;
-      console.error(msg);
-      throw new Error(msg);
+      log(`[WARN] Tray icon not found: ${iconWin}. Using Electron default icon.`);
+      return null;
     }
     return iconWin;
   }
 
-  // macOS / Linux
   if (!fs.existsSync(iconMac)) {
-    const msg = `[Electron] Required tray icon not found: ${iconMac}. Build cannot proceed without assemblyai-color.png derived icon.`;
-    console.error(msg);
-    throw new Error(msg);
+    log(`[WARN] Tray icon not found: ${iconMac}. Using Electron default icon.`);
+    return null;
   }
   return iconMac;
 }
@@ -217,6 +230,9 @@ function startServer() {
       return;
     }
 
+    log(`Starting server: node=${nodePath}, cli=${cliPath}`);
+    log(`Resource path: ${getResourcePath()}`);
+
     const cliDir = path.dirname(cliPath);
 
     serverProcess = spawn(nodePath, [
@@ -224,7 +240,7 @@ function startServer() {
       '--port', serverPort.toString(),
       '--no-browser',
       '--tray',
-      '--no-tray'  // 阻止 CLI 创建托盘，由 Electron 自己管理
+      '--no-tray'
     ], {
       cwd: cliDir,
       stdio: 'pipe',
@@ -235,14 +251,15 @@ function startServer() {
       }
     });
 
-    // 仅记录日志，不再依赖 stdout 关键字判断就绪
+    log(`Server process spawned (PID: ${serverProcess.pid})`);
+
     serverProcess.stdout.on('data', (data) => {
       const text = data.toString();
-      console.log(`[Server] ${text.trim()}`);
+      log(`[Server] ${text.trim()}`);
     });
 
     serverProcess.stderr.on('data', (data) => {
-      console.error(`[Server Error] ${data.toString().trim()}`);
+      log(`[Server Error] ${data.toString().trim()}`);
     });
 
     serverProcess.on('error', (err) => {
@@ -255,27 +272,35 @@ function startServer() {
       }
     });
 
-    // 通过 HTTP 健康检查等待 server 真正就绪（替代 stdout 关键字匹配）
-    // 60 次 × 1 秒 = 最长等待 60 秒，覆盖 Next.js 首次启动编译时间
-    waitForServerHealth(serverPort, 60, 1000).then(resolve).catch(reject);
+    waitForServerHealth(serverPort, 120, 1000).then(resolve).catch(reject);
   });
 }
 
 async function restartServer() {
+  log('Restarting server...');
   await stopServer();
   await startServer();
   if (mainWindow) {
     mainWindow.reload();
   }
+  log('Server restarted');
 }
 
 function stopServer() {
   return new Promise((resolve) => {
     if (serverProcess && !serverProcess.killed) {
+      log(`Stopping server process PID=${serverProcess.pid}...`);
       serverProcess.kill('SIGTERM');
       setTimeout(() => {
         if (serverProcess && !serverProcess.killed) {
+          log('Force killing server process...');
           serverProcess.kill('SIGKILL');
+          // 强制 Windows 下 taskkill
+          if (process.platform === 'win32' && serverProcess.pid) {
+            try {
+              execSync(`taskkill /F /T /PID ${serverProcess.pid} 2>nul`, { stdio: 'ignore', shell: true, windowsHide: true, timeout: 3000 });
+            } catch {}
+          }
         }
         resolve();
       }, 2000);
@@ -287,39 +312,82 @@ function stopServer() {
 
 // ===== 窗口管理 =====
 
-function createMainWindow() {
-  // 解析窗口图标
-  let windowIconPath;
-  try {
-    windowIconPath = getIconPath();
-  } catch (err) {
-    console.error(err.message);
-    return;
-  }
+const LOADING_HTML = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>One</title>
+<style>
+  body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0a0a0a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  .box{text-align:center}
+  .spinner{width:48px;height:48px;border:3px solid #333;border-top-color:#e56a4a;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 24px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:18px;margin:0 0 8px;font-weight:600}
+  p{font-size:13px;color:#888;margin:0}
+</style></head><body>
+<div class="box"><div class="spinner"></div>
+<h1>One 正在启动</h1><p>正在加载服务，请稍候...</p></div></body></html>`;
 
-  mainWindow = new BrowserWindow({
+let loadingWindow = null;
+
+function showLoadingWindow() {
+  loadingWindow = new BrowserWindow({
+    width: 480,
+    height: 280,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
+  loadingWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(LOADING_HTML));
+  loadingWindow.once('ready-to-show', () => {
+    if (loadingWindow && !loadingWindow.isDestroyed()) {
+      loadingWindow.show();
+    }
+  });
+  loadingWindow.setMenuBarVisibility(false);
+}
+
+function hideLoadingWindow() {
+  if (loadingWindow && !loadingWindow.isDestroyed()) {
+    loadingWindow.close();
+    loadingWindow = null;
+  }
+}
+
+function createMainWindow() {
+  const iconPath = getIconPath();
+
+  const windowOptions = {
     width: 1280,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     title: 'One',
     show: false,
-    icon: windowIconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  };
+
+  if (iconPath) {
+    windowOptions.icon = iconPath;
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
 
   mainWindow.loadURL(`http://localhost:${serverPort}`);
 
   mainWindow.once('ready-to-show', () => {
+    hideLoadingWindow();
     mainWindow.show();
   });
 
-  // 关闭按钮：仅隐藏到托盘
   mainWindow.on('close', (e) => {
     if (!isQuitting) {
       e.preventDefault();
@@ -327,12 +395,10 @@ function createMainWindow() {
     }
   });
 
-  // 窗口大小变化时更新 BrowserView bounds
   mainWindow.on('resize', () => {
     updateBrowserViewBounds();
   });
 
-  // 窗口获得焦点时，BrowserView 也获得焦点
   mainWindow.on('focus', () => {
     if (browserView) {
       browserView.webContents.focus();
@@ -356,16 +422,18 @@ function createMainWindow() {
  * 创建系统托盘
  */
 function createTray() {
-  // 解析托盘图标
-  let trayIconPath;
+  const iconPath = getIconPath();
+
   try {
-    trayIconPath = getIconPath();
+    if (iconPath) {
+      tray = new Tray(iconPath);
+    } else {
+      tray = new Tray(nativeImage.createEmpty());
+    }
   } catch (err) {
-    console.error(err.message);
+    log(`[ERROR] Failed to create tray: ${err.message}`);
     return;
   }
-
-  tray = new Tray(trayIconPath);
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -405,7 +473,6 @@ function createTray() {
   tray.setToolTip('One - 端口 20128');
   tray.setContextMenu(contextMenu);
 
-  // 双击托盘图标：显示/隐藏主窗口
   tray.on('double-click', () => {
     if (mainWindow) {
       if (mainWindow.isVisible()) {
@@ -439,9 +506,9 @@ function setAutoStartEnabled(enabled) {
       openAtLogin: !!enabled,
       args: ['--hidden']
     });
-    console.log(`[Electron] AutoStart set to: ${enabled}`);
+    log(`AutoStart set to: ${enabled}`);
   } catch (e) {
-    console.error(`[Electron] Failed to set autoStart: ${e.message}`);
+    log(`[ERROR] Failed to set autoStart: ${e.message}`);
   }
 }
 
@@ -481,30 +548,169 @@ ipcMain.handle('sidebar:set-width', (event, width) => {
   return { success: true, width: sidebarWidth };
 });
 
+// ===== 启动前清理 =====
+
+/**
+ * 强制关闭残留的 One 进程（CLI/旧版 Electron 等）
+ */
+function killStaleProcesses() {
+  log('[Cleanup] Checking for stale One processes...');
+  try {
+    if (process.platform === 'win32') {
+      // Windows: 使用 PowerShell 查找 node.exe 中运行 One/cli.js 的进程
+      const psCmd = `powershell -NonInteractive -WindowStyle Hidden -Command "Get-WmiObject Win32_Process -Filter 'Name=\\"node.exe\\"' | Select-Object ProcessId,CommandLine | ConvertTo-Csv -NoTypeInformation"`;
+      const output = execSync(psCmd, { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+      const lines = output.split('\n').slice(1).filter(l => l.trim());
+      let killed = 0;
+      lines.forEach(line => {
+        const cmd = line.toLowerCase();
+        const isAppProcess =
+          (cmd.includes('node') && (cmd.includes('one/cli.js') || cmd.includes('\\one\\') || cmd.includes('/one/')))
+          || cmd.includes('next-server');
+        if (isAppProcess) {
+          const match = line.match(/^"(\d+)"/);
+          if (match && match[1] && match[1] !== process.pid.toString()) {
+            log(`[Cleanup] Killing stale process PID=${match[1]}`);
+            try {
+              execSync(`taskkill /F /PID ${match[1]} 2>nul`, { stdio: 'ignore', shell: true, windowsHide: true, timeout: 3000 });
+              killed++;
+            } catch {}
+          }
+        }
+      });
+      if (killed > 0) {
+        log(`[Cleanup] Killed ${killed} stale process(es)`);
+        // 等待端口释放
+        execSync('timeout /t 2 /nobreak > nul', { stdio: 'ignore', shell: true, windowsHide: true, timeout: 3000 });
+      } else {
+        log('[Cleanup] No stale processes found');
+      }
+    } else {
+      // macOS/Linux
+      const output = execSync('ps aux 2>/dev/null', { encoding: 'utf8', timeout: 5000 });
+      const lines = output.split('\n');
+      let killed = 0;
+      lines.forEach(line => {
+        const cmd = line.toLowerCase();
+        const isAppProcess =
+          (cmd.includes('node') && (cmd.includes('one/cli.js') || cmd.includes('/one/')))
+          || cmd.includes('next-server');
+        if (isAppProcess) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[1];
+          if (pid && !isNaN(pid) && pid !== process.pid.toString()) {
+            log(`[Cleanup] Killing stale process PID=${pid}`);
+            try {
+              execSync(`kill -9 ${pid} 2>/dev/null`, { stdio: 'ignore', timeout: 3000 });
+              killed++;
+            } catch {}
+          }
+        }
+      });
+      if (killed > 0) {
+        log(`[Cleanup] Killed ${killed} stale process(es)`);
+      }
+    }
+  } catch (err) {
+    log(`[Cleanup] Error during stale process cleanup: ${err.message}`);
+  }
+}
+
+/**
+ * 检查端口是否被占用
+ */
+function checkPortAvailable(port) {
+  try {
+    if (process.platform === 'win32') {
+      const output = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8', shell: true, windowsHide: true, timeout: 5000 }).trim();
+      const lines = output.split('\n').filter(l => l.includes('LISTENING'));
+      if (lines.length > 0) {
+        const pid = lines[0].trim().split(/\s+/).pop();
+        log(`[Port] Port ${port} is occupied by PID ${pid}`);
+        return false;
+      }
+    } else {
+      const pidOutput = execSync(`lsof -ti:${port}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      if (pidOutput) {
+        log(`[Port] Port ${port} is occupied by PID ${pidOutput}`);
+        return false;
+      }
+    }
+    log(`[Port] Port ${port} is available`);
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 // ===== 应用生命周期 =====
 
 app.whenReady().then(async () => {
-  try {
-    console.log('Starting One server...');
-    await startServer();
-    console.log('Server started successfully');
+  log('=== One Electron starting ===');
+  log(`Platform: ${process.platform}, Arch: ${process.arch}`);
+  log(`App version: ${app.getVersion()}`);
+  log(`App path: ${app.getPath('exe')}`);
+  log(`User data: ${app.getPath('userData')}`);
+  log(`Logs: ${LOG_FILE}`);
 
+  // 1. 清理残留进程
+  killStaleProcesses();
+
+  // 2. 检查端口
+  const portAvailable = checkPortAvailable(serverPort);
+  if (!portAvailable) {
+    const choice = dialog.showErrorBox(
+      '端口被占用',
+      `端口 ${serverPort} 被其他程序占用。\n\n请关闭占用端口的程序后重试，或手动释放端口。\n\n日志位置：${LOG_FILE}`
+    );
+    log('[ERROR] Port occupied, cannot start');
+    app.quit();
+    return;
+  }
+
+  // 3. 显示启动加载界面
+  showLoadingWindow();
+
+  // 4. 启动服务
+  try {
+    log('Starting One server...');
+    await startServer();
+    log('Server started successfully');
+
+    // 5. 创建窗口和托盘
     createMainWindow();
     createTray();
   } catch (err) {
-    console.error('Failed to start:', err);
+    log(`[FATAL] Failed to start: ${err.message}`);
+    log(err.stack || '');
+
+    // 关闭加载窗口
+    hideLoadingWindow();
+
+    // 显示错误对话框
+    dialog.showErrorBox(
+      'One 启动失败',
+      `无法启动 One 服务：\n\n${err.message}\n\n` +
+      `可能的原因：\n` +
+      `• 端口 ${serverPort} 被占用\n` +
+      `• 必要文件缺失（请检查安装是否完整）\n` +
+      `• 系统资源不足\n\n` +
+      `详细日志：${LOG_FILE}`
+    );
     app.quit();
   }
 });
 
 app.on('window-all-closed', (e) => {
-  // 防止窗口全部关闭时退出进程，保留托盘后台运行
   e.preventDefault();
 });
 
 app.on('before-quit', async () => {
   isQuitting = true;
+  log('App quitting, cleaning up...');
   await stopServer();
+  // 额外等待子进程退出
+  await new Promise(r => setTimeout(r, 500));
 });
 
 app.on('activate', () => {
