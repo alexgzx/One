@@ -361,11 +361,11 @@ function BrowserViewCloseButton() {
     <button
       onClick={handleClose}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-text-muted hover:text-primary hover:bg-surface-2/60 transition-all duration-200 shrink-0"
-      aria-label="关闭内嵌网页"
-      title="关闭内嵌网页并返回"
+      aria-label="返回"
+      title="关闭当前页面并返回"
     >
       <span className="material-symbols-outlined text-[18px]">close</span>
-      <span className="text-xs font-medium hidden sm:inline">关闭网页</span>
+      <span className="text-xs font-medium hidden sm:inline">返回</span>
     </button>
   );
 }
