@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   navigateBrowserView: (url) => ipcRenderer.invoke('browser-view:navigate', url),
   canGoBackBrowserView: () => ipcRenderer.invoke('browser-view:can-go-back'),
   goBackBrowserView: () => ipcRenderer.invoke('browser-view:go-back'),
+  // 修复2：查询 BrowserView 状态，供 Header 检测是否需要显示关闭按钮
+  getBrowserViewStatus: () => ipcRenderer.invoke('browser-view:get-status'),
 
   // 侧边栏宽度 - 用于 BrowserView 自适应
   setSidebarWidth: (width) => ipcRenderer.invoke('sidebar:set-width', width),

@@ -542,6 +542,11 @@ ipcMain.handle('browser-view:go-back', () => {
   return { success: true };
 });
 
+// 修复2：提供 BrowserView 状态查询，供 Header 检测是否需要显示关闭按钮
+ipcMain.handle('browser-view:get-status', () => {
+  return { active: !!browserView };
+});
+
 ipcMain.handle('sidebar:set-width', (event, width) => {
   sidebarWidth = Math.max(68, Math.min(300, parseInt(width) || 240));
   updateBrowserViewBounds();

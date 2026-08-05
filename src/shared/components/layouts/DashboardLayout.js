@@ -44,6 +44,17 @@ export default function DashboardLayout({ children }) {
     if (saved === "true") setSidebarCollapsed(true);
   }, []);
 
+  // 修复3：路由变化时自动关闭 Electron BrowserView，避免跨页面持久化
+  useEffect(() => {
+    const electronAPI = typeof window !== "undefined" ? window.electronAPI : null;
+    if (!electronAPI) return;
+
+    // 当离开 vibe-coding viewer 页面时，关闭 BrowserView
+    if (!pathname.startsWith("/dashboard/vibe-coding/viewer")) {
+      electronAPI.closeBrowserView?.().catch(() => {});
+    }
+  }, [pathname]);
+
   const toggleCollapse = () => {
     setSidebarCollapsed((v) => {
       const next = !v;

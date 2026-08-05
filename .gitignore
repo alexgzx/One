@@ -145,3 +145,4 @@ cli-*.tgz
 # Local test scripts (not for CI)
 # ============================================================
 test-stale-process.ps1
+src/shared/utils/browserViewCleanup.js

@@ -22,6 +22,16 @@ function VibeCodingViewerContent() {
       electronAPI.openBrowserView(url);
       setIsLoading(false);
     }
+    // 修复3：组件卸载时自动关闭 BrowserView，避免跨页面持久化
+    return () => {
+      if (electronAPI) {
+        try {
+          electronAPI.closeBrowserView();
+        } catch (e) {
+          // 静默处理，避免卸载时报错
+        }
+      }
+    };
   }, [url]);
 
   const handleBack = async () => {
@@ -41,28 +51,29 @@ function VibeCodingViewerContent() {
 
   return (
     <div className="flex flex-col h-screen relative">
-      {/* 顶部返回按钮 - z-10 确保不被 iframe 覆盖 */}
-      <div className="relative z-10 flex items-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-        <button
-          onClick={handleBack}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
-            "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100",
-            "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-            "transition-colors duration-150"
-          )}
-        >
-          <ArrowLeft size={16} strokeWidth={1.5} />
-          <span className="text-sm font-medium">返回 {title}</span>
-        </button>
-      </div>
+      {/* 顶部返回按钮 - 仅在非 Electron 模式下渲染（Electron 模式由 Header 提供关闭按钮） */}
+      {!isElectron && (
+        <div className="relative z-10 flex items-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+          <button
+            onClick={handleBack}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
+              "text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100",
+              "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+              "transition-colors duration-150"
+            )}
+          >
+            <ArrowLeft size={16} strokeWidth={1.5} />
+            <span className="text-sm font-medium">返回 {title}</span>
+          </button>
+        </div>
+      )}
 
       {/* 内容区域 - iframe 使用 absolute 覆盖剩余空间 */}
       <div className="flex-1 relative">
         {isElectron ? (
-          <div className="flex items-center justify-center h-full text-zinc-400 dark:text-zinc-500">
-            <p>网页已在独立进程中打开</p>
-          </div>
+          // 修复1：Electron 模式下不渲染占位文字，仅保留空容器
+          <div className="w-full h-full" aria-hidden="true" />
         ) : (
           <iframe
             ref={iframeRef}

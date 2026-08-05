@@ -181,7 +181,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
     <header className="relative shrink-0 flex items-center justify-between gap-3 px-5 lg:px-7 py-4 border-b border-border-subtle/60 bg-vibrancy backdrop-blur-2xl z-20">
       {/* 细装饰渐变 */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/[0.08] to-transparent" />
-      
+
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
@@ -193,6 +193,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </button>
         )}
       </div>
+
+      {/* 修复2：Electron 模式下，检测 BrowserView 状态并显示关闭按钮 */}
+      <BrowserViewCloseButton />
 
       {/* Page title with breadcrumbs */}
       <div className="flex flex-col min-w-0 flex-1">
@@ -303,3 +306,66 @@ Header.propTypes = {
   onMenuClick: PropTypes.func,
   showMenuButton: PropTypes.bool,
 };
+
+/**
+ * 修复2：Electron BrowserView 关闭按钮
+ * 仅在 Electron 模式且 BrowserView 激活时显示
+ * 点击后关闭 BrowserView 并返回 vibe-coding 页面
+ */
+function BrowserViewCloseButton() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    const electronAPI = window.electronAPI;
+    if (!electronAPI) return;
+
+    let cancelled = false;
+
+    const checkStatus = async () => {
+      try {
+        const status = await electronAPI.getBrowserViewStatus();
+        if (!cancelled) {
+          setIsActive(!!status.active);
+        }
+      } catch {}
+    };
+
+    // 初次检查
+    checkStatus();
+
+    // 路由变化时重新检查
+    checkStatus();
+
+    // 定期检查（兜底机制，确保状态同步）
+    const interval = setInterval(checkStatus, 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [pathname]);
+
+  const handleClose = async () => {
+    try {
+      await window.electronAPI?.closeBrowserView();
+    } catch {}
+    setIsActive(false);
+    router.push("/dashboard/vibe-coding");
+  };
+
+  if (!isActive) return null;
+
+  return (
+    <button
+      onClick={handleClose}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-text-muted hover:text-primary hover:bg-surface-2/60 transition-all duration-200 shrink-0"
+      aria-label="关闭内嵌网页"
+      title="关闭内嵌网页并返回"
+    >
+      <span className="material-symbols-outlined text-[18px]">close</span>
+      <span className="text-xs font-medium hidden sm:inline">关闭网页</span>
+    </button>
+  );
+}
