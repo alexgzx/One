@@ -11,6 +11,7 @@
 
 !macro customInstall
   ; Run the PowerShell cleanup script before installation
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-cleanup.ps1"'
-  Sleep 500
+  ; Using nsExec::Exec (not ExecToLog) to avoid ACCESS_VIOLATION in CI environments
+  nsExec::Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-cleanup.ps1"'
+  Sleep 3000
 !macroend

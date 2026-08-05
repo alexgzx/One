@@ -20,34 +20,39 @@ foreach ($proc in $oneProcs) {
 }
 
 # Step 2: Kill node.exe processes running One/cli.js
+# Use Get-Process (more reliable than WMI in CI environments)
 Write-Host "[One-Cleanup] Killing node.exe processes running One/cli.js..."
-$nodeProcs = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue
+$nodeProcs = Get-Process -Name "node" -ErrorAction SilentlyContinue
 foreach ($proc in $nodeProcs) {
-    $cmd = if ($proc.CommandLine) { $proc.CommandLine.ToLower() } else { "" }
-    if ($cmd -match "one[/\\]cli\.js") {
-        try {
-            Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
-            Write-Host "  Killed node.exe PID=$($proc.ProcessId) (One/cli.js)"
-        } catch {}
-    }
+    try {
+        $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId=$($proc.Id)" -ErrorAction SilentlyContinue).CommandLine
+        if ($cmdLine -and $cmdLine.ToLower() -match "one[/\\]cli\.js") {
+            Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+            Write-Host "  Killed node.exe PID=$($proc.Id) (One/cli.js)"
+        }
+    } catch {}
 }
 
 # Step 3: Kill any process occupying port 20128
 Write-Host "[One-Cleanup] Checking port $port..."
-$netstatOutput = netstat -ano | findstr "LISTENING" | findstr ":$port"
-if ($netstatOutput) {
-    $parts = $netstatOutput.Trim() -split '\s+'
-    $procId = $parts[-1]
-    if ($procId -match '^\d+$') {
-        try {
-            Stop-Process -Id ([int]$procId) -Force -ErrorAction Stop
-            Write-Host "  Killed PID=$procId occupying port $port"
-        } catch {
-            Write-Host "  Failed to kill PID=$procId : $_"
+try {
+    $netstatOutput = netstat -ano | findstr "LISTENING" | findstr ":$port"
+    if ($netstatOutput) {
+        $parts = $netstatOutput.Trim() -split '\s+'
+        $procId = $parts[-1]
+        if ($procId -match '^\d+$') {
+            try {
+                Stop-Process -Id ([int]$procId) -Force -ErrorAction Stop
+                Write-Host "  Killed PID=$procId occupying port $port"
+            } catch {
+                Write-Host "  Failed to kill PID=$procId : $_"
+            }
         }
+    } else {
+        Write-Host "  Port $port is free"
     }
-} else {
-    Write-Host "  Port $port is free"
+} catch {
+    Write-Host "  Port check failed: $_"
 }
 
 # Step 4: Wait for file handles to be released
