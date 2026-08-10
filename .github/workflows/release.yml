@@ -1384,33 +1384,3 @@ jobs:
           path: "${{ env.APP_NAME }}-${{ steps.ver.outputs.version }}-macos-arm64-electron.dmg"
           if-no-files-found: error
 
-  # =====================================================================
-  # 6. 创建/更新 GitHub Release，附带所有产物
-  # =====================================================================
-  release:
-    name: Publish Release
-    needs: [build-windows, build-macos, build-windows-electron, build-macos-electron]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-
-      - name: List artifacts
-        run: ls -lah dist
-
-      - name: Create / update Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: ${{ github.event.inputs.tag || github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            dist/**/*.zip
-            dist/**/*.msi
-            dist/**/*.dmg
-            dist/**/*.exe

@@ -10,7 +10,7 @@ import {
   Toggle,
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
+import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
   FREE_PROVIDERS,
   FREE_TIER_PROVIDERS,
@@ -162,39 +162,6 @@ export default function ProvidersPage() {
     }
   };
 
-  const resolveAuthType = (authType) => {
-    if (authType === "freeTier") return "apikey";
-    return authType;
-  };
-
-  const sortByPriority = (entries, authType) =>
-    [...entries].sort(([ka, a], [kb, b]) => {
-      const resolvedAuthType = resolveAuthType(authType);
-      const sa = getProviderStats(ka, resolvedAuthType);
-      const sb = getProviderStats(kb, resolvedAuthType);
-      const isReadyA = sa.connected > 0 || a.noAuth;
-      const isReadyB = sb.connected > 0 || b.noAuth;
-      if (isReadyA !== isReadyB) return isReadyA ? -1 : 1;
-      const pa = a.priority ?? 999;
-      const pb = b.priority ?? 999;
-      if (pa !== pb) return pa - pb;
-      return (a.name || "").localeCompare(b.name || "");
-    });
-
-  const sortItemsByPriority = (items, authType) =>
-    [...items].sort((a, b) => {
-      const resolvedAuthType = resolveAuthType(authType);
-      const sa = getProviderStats(a.id, resolvedAuthType);
-      const sb = getProviderStats(b.id, resolvedAuthType);
-      const isReadyA = sa.connected > 0 || a.noAuth;
-      const isReadyB = sb.connected > 0 || b.noAuth;
-      if (isReadyA !== isReadyB) return isReadyA ? -1 : 1;
-      const pa = a.priority ?? 999;
-      const pb = b.priority ?? 999;
-      if (pa !== pb) return pa - pb;
-      return (a.name || "").localeCompare(b.name || "");
-    });
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -315,7 +282,13 @@ export default function ProvidersPage() {
       textIcon: "OC",
       apiType: node.apiType,
     }))
-    .filter((p) => matchSearch(p.name));
+    .filter((p) => matchSearch(p.name))
+    .sort((a, b) => {
+      const ca = getProviderStats(a.id, "apikey").connected > 0 ? 0 : 1;
+      const cb = getProviderStats(b.id, "apikey").connected > 0 ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
 
   const anthropicCompatibleProviders = providerNodes
     .filter((node) => node.type === "anthropic-compatible")
@@ -325,12 +298,14 @@ export default function ProvidersPage() {
       color: "#D97757",
       textIcon: "AC",
     }))
-    .filter((p) => matchSearch(p.name));
+    .filter((p) => matchSearch(p.name))
+    .sort((a, b) => {
+      const ca = getProviderStats(a.id, "apikey").connected > 0 ? 0 : 1;
+      const cb = getProviderStats(b.id, "apikey").connected > 0 ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
 
-  const oauthEntries = sortByPriority(
-    Object.entries(OAUTH_PROVIDERS).filter(([, info]) => !info.hidden && matchSearch(info.name)),
-    "oauth",
-  );
   const allFreeProviders = [
     ...Object.entries(FREE_PROVIDERS).filter(([, info]) => !info.hidden && matchSearch(info.name)).map(([k, v]) => ({ ...v, id: k, originalType: "free" })),
     ...Object.entries(FREE_TIER_PROVIDERS).filter(
@@ -364,9 +339,12 @@ export default function ProvidersPage() {
         matchSearch(info.name),
     )
     .sort(([ka, a], [kb, b]) => {
-      const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
-      const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
+      const ca = getProviderStats(ka, "apikey").connected > 0 ? 0 : 1;
+      const cb = getProviderStats(kb, "apikey").connected > 0 ? 0 : 1;
       if (ca !== cb) return ca - cb;
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
+      if (pa !== pb) return pa - pb;
       return (a.name || "").localeCompare(b.name || "");
     });
   const isApikeySearching = !!searchQuery.trim();
@@ -386,7 +364,6 @@ export default function ProvidersPage() {
   }
 
   const hasAnyResult =
-    oauthEntries.length > 0 ||
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
     apikeyEntries.length > 0 ||
@@ -455,41 +432,6 @@ export default function ProvidersPage() {
           </div>
         )}
       </div>
-
-      {/* OAuth Providers */}
-      {oauthEntries.length > 0 && (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            OAuth 提供商
-          </h2>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <ModelAvailabilityBadge />
-          </div>
-        </div>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={oauthEntries.map(([k]) => k)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {oauthEntries.map(([key, info]) => (
-                <SortableProviderCard
-                  key={key}
-                  providerId={key}
-                  provider={info}
-                  stats={getProviderStats(key, "oauth")}
-                  authType="oauth"
-                  onToggle={(active) => handleToggleProvider(key, "oauth", active)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      </div>
-      )}
 
       {/* Free Tier Providers */}
       {(freeEntries.length > 0 || freeTierEntries.length > 0) && (
@@ -607,24 +549,28 @@ export default function ProvidersPage() {
         </div>
       </div> */}
 
-      <AddCompatibleModal
-        variant="openai"
-        isOpen={showAddCompatibleModal}
-        onClose={() => setShowAddCompatibleModal(false)}
-        onCreated={(node) => {
-          setProviderNodes((prev) => [...prev, node]);
-          setShowAddCompatibleModal(false);
-        }}
-      />
-      <AddCompatibleModal
-        variant="anthropic"
-        isOpen={showAddAnthropicCompatibleModal}
-        onClose={() => setShowAddAnthropicCompatibleModal(false)}
-        onCreated={(node) => {
-          setProviderNodes((prev) => [...prev, node]);
-          setShowAddAnthropicCompatibleModal(false);
-        }}
-      />
+      {showAddCompatibleModal && (
+        <AddCompatibleModal
+          variant="openai"
+          isOpen={showAddCompatibleModal}
+          onClose={() => setShowAddCompatibleModal(false)}
+          onCreated={(node) => {
+            setProviderNodes((prev) => [...prev, node]);
+            setShowAddCompatibleModal(false);
+          }}
+        />
+      )}
+      {showAddAnthropicCompatibleModal && (
+        <AddCompatibleModal
+          variant="anthropic"
+          isOpen={showAddAnthropicCompatibleModal}
+          onClose={() => setShowAddAnthropicCompatibleModal(false)}
+          onCreated={(node) => {
+            setProviderNodes((prev) => [...prev, node]);
+            setShowAddAnthropicCompatibleModal(false);
+          }}
+        />
+      )}
 
       {/* Test Results Modal */}
       {testResults && (

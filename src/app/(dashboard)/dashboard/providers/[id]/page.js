@@ -1540,24 +1540,27 @@ export default function ProviderDetailPage() {
           onClose={() => setShowIFlowCookieModal(false)}
         />
       )}
-      <AddApiKeyModal
-        isOpen={showAddApiKeyModal}
-        provider={providerId}
-        providerName={providerInfo.name}
-        isCompatible={isCompatible}
-        isAnthropic={isAnthropicCompatible}
-        authType={providerInfo?.authType}
-        authHint={providerInfo?.authHint}
-        website={providerInfo?.website}
-        proxyPools={proxyPools}
-        error={addConnectionError}
-        onSave={handleSaveApiKey}
-        onBulkDone={fetchConnections}
-        onClose={() => {
-          setAddConnectionError("");
-          setShowAddApiKeyModal(false);
-        }}
-      />
+      {showAddApiKeyModal && (
+        <AddApiKeyModal
+          key={`add-key-${providerId}-${providerInfo?.name || ""}`}
+          isOpen={showAddApiKeyModal}
+          provider={providerId}
+          providerName={providerInfo.name}
+          isCompatible={isCompatible}
+          isAnthropic={isAnthropicCompatible}
+          authType={providerInfo?.authType}
+          authHint={providerInfo?.authHint}
+          website={providerInfo?.website}
+          proxyPools={proxyPools}
+          error={addConnectionError}
+          onSave={handleSaveApiKey}
+          onBulkDone={fetchConnections}
+          onClose={() => {
+            setAddConnectionError("");
+            setShowAddApiKeyModal(false);
+          }}
+        />
+      )}
       <EditConnectionModal
         isOpen={showEditModal}
         connection={selectedConnection}

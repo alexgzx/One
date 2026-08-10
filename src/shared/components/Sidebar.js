@@ -128,7 +128,6 @@ const navItems = [
   { href: "/dashboard/providers", id: "providers", icon: "dns" },
   { href: "/dashboard/combos", id: "combos", icon: "layers" },
   { href: "/dashboard/usage", id: "usage", icon: "bar_chart" },
-  { href: "/dashboard/quota", id: "quota", icon: "data_usage" },
   { href: "/dashboard/vibe-coding", id: "vibe_coding", icon: "sparkles" },
 ];
 
@@ -376,24 +375,6 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
         collapsed ? "w-[68px]" : "w-60"
       )}
     >
-      {/* 顶部品牌区 + 折叠按钮 */}
-      <div className={cn("flex items-center pt-4 pb-3", collapsed ? "px-3 justify-center" : "px-3 justify-between")}>
-        {!collapsed && (
-          <div className="flex items-center group">
-            <span className="text-lg font-bold text-zinc-800 dark:text-zinc-100 tracking-tight transition-all duration-300 group-hover:text-brand-600 dark:group-hover:text-brand-400">
-              One
-            </span>
-          </div>
-        )}
-        {collapsed && (
-          <div className="flex items-center justify-center">
-            <span className="text-lg font-bold text-zinc-800 dark:text-zinc-100">
-              O
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* 折叠按钮 - 边缘悬浮按钮 */}
       {onToggleCollapse && (
         <button

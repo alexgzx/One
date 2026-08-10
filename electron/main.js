@@ -399,12 +399,6 @@ function createMainWindow() {
     updateBrowserViewBounds();
   });
 
-  mainWindow.on('focus', () => {
-    if (browserView) {
-      browserView.webContents.focus();
-    }
-  });
-
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith(`http://localhost:${serverPort}`)) {
       event.preventDefault();

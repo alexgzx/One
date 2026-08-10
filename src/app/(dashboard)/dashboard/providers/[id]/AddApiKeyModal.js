@@ -22,14 +22,14 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const providerRegions = AI_PROVIDERS?.[provider]?.regions || null;
   const defaultRegion = AI_PROVIDERS?.[provider]?.defaultRegion || providerRegions?.[0]?.id || "";
 
-  const [formData, setFormData] = useState({
-    name: "",
+  const [formData, setFormData] = useState(() => ({
+    name: isCompatible && providerName ? `${providerName} 密钥` : "",
     apiKey: "",
     defaultModel: "",
     priority: 1,
     proxyPoolId: NONE_PROXY_POOL_VALUE,
     ollamaHostUrl: "",
-  });
+  }));
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
     apiVersion: "2024-10-01-preview",
@@ -41,9 +41,9 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [mode, setMode] = useState("single"); // "single" | "bulk"
+  const [mode, setMode] = useState("single");
   const [bulkText, setBulkText] = useState("");
-  const [bulkResult, setBulkResult] = useState(null); // { success, failed }
+  const [bulkResult, setBulkResult] = useState(null);
 
   const buildProviderSpecificData = () => {
     if (isOllamaLocal && formData.ollamaHostUrl.trim()) {
@@ -87,7 +87,6 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     if (!provider) return;
     if (!isOllamaLocal && !formData.apiKey) return;
     if (!isOllamaLocal) {
-      // Non-ollama providers require a name
       if (!formData.name) return;
     }
     if (isCompatible && !formData.defaultModel.trim()) return;
@@ -156,6 +155,60 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   };
 
   if (!provider) return null;
+
+  if (isCompatible) {
+    return (
+      <Modal isOpen={isOpen} title={`添加 ${providerName || provider} API Key`} onClose={onClose}>
+        <div className="flex flex-col gap-4">
+          <Input
+            label="名称"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="生产密钥"
+            hint="已自动填充，可修改。"
+            autoFocus
+          />
+          <Input
+            label={credentialLabel}
+            type={isCookie ? "text" : "password"}
+            value={formData.apiKey}
+            onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+            placeholder={credentialPlaceholder}
+          />
+          <Input
+            label="默认模型"
+            value={formData.defaultModel}
+            onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })}
+            placeholder={isAnthropic ? "claude-3-5-sonnet-latest" : "gpt-4o-mini"}
+            hint={isAnthropic ? "例如 claude-3-5-sonnet-latest" : "例如 gpt-4o-mini"}
+          />
+          <p className="text-xs text-text-muted">
+            请按照兼容端点期望的格式输入模型 ID。保存时会自动验证 API Key 有效性。
+          </p>
+          {validationResult && (
+            <Badge variant={validationResult === "success" ? "success" : "error"}>
+              {validationResult === "success" ? "有效" : "无效"}
+            </Badge>
+          )}
+          {error && (
+            <p className="text-xs text-red-500 break-words">{error}</p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSubmit}
+              fullWidth
+              disabled={saving || !formData.name || !formData.apiKey || !formData.defaultModel.trim()}
+            >
+              {saving ? "保存中..." : "保存"}
+            </Button>
+            <Button onClick={onClose} variant="ghost" fullWidth>
+              取消
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen={isOpen} title={`添加 ${providerName || provider} ${credentialLabel}`} onClose={onClose}>
@@ -255,14 +308,6 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
           />
         )}
-        {isCompatible && (
-          <Input
-            label="默认模型"
-            value={formData.defaultModel}
-            onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })}
-            placeholder={isAnthropic ? "claude-3-5-sonnet-latest" : "gpt-4o-mini"}
-          />
-        )}
         {isOllamaLocal && (
           <p className="text-xs text-text-muted">
             留空使用 <code>http://localhost:11434</code>。对于远程 Ollama，请输入完整的主机地址（例如 <code>http://192.168.1.10:11434</code>）。
@@ -275,11 +320,6 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         )}
         {error && (
           <p className="text-xs text-red-500 break-words">{error}</p>
-        )}
-        {isCompatible && (
-          <p className="text-xs text-text-muted">
-            请按照兼容端点期望的格式输入模型 ID。此模型将作为连接的默认模型保存。
-          </p>
         )}
         {isCloudflareAi && (
           <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
@@ -356,7 +396,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         </p>
 
         <div className="flex gap-2">
-          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
+          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
             {saving ? "保存中..." : "保存"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
