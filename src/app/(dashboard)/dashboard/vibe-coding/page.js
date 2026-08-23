@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, Palette, GripVertical } from "lucide-react";
+import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, Palette, GraduationCap, GripVertical } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import Draggable from "react-draggable";
 
@@ -71,6 +71,14 @@ const vibeCards = [
     icon: Palette,
     bgColor: "bg-teal-50 dark:bg-teal-500/15",
     iconColor: "text-teal-500 dark:text-teal-400",
+  },
+  {
+    id: "ai-handbook",
+    title: "AI入门手册",
+    url: "https://www.jxxy.net/ai/",
+    icon: GraduationCap,
+    bgColor: "bg-indigo-50 dark:bg-indigo-500/15",
+    iconColor: "text-indigo-500 dark:text-indigo-400",
   },
 ];
 
