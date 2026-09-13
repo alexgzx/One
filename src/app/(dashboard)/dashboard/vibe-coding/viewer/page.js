@@ -13,7 +13,7 @@ function VibeCodingViewerContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const url = searchParams.get("url");
-  const title = searchParams.get("title") || "Vibe coding";
+  const title = searchParams.get("title") || "AI学习";
 
   useEffect(() => {
     const electronAPI = window.electronAPI;

@@ -100,7 +100,7 @@ const labelMap = {
   combos: "组合",
   usage: "使用情况",
   quota: "配额跟踪器",
-  vibe_coding: "Vibe coding",
+  vibe_coding: "AI学习",
   console_log: "控制台日志",
   translator: "翻译器",
   settings: "设置",

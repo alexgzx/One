@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, Palette, GraduationCap, GripVertical } from "lucide-react";
+import { Sparkles, BookOpen, FileText, Wrench, Gem, Compass, Radar, Palette, GraduationCap, GripVertical, Gamepad2, Briefcase, Code2, BadgeCheck, Bot } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import Draggable from "react-draggable";
 
@@ -79,6 +79,46 @@ const vibeCards = [
     icon: GraduationCap,
     bgColor: "bg-indigo-50 dark:bg-indigo-500/15",
     iconColor: "text-indigo-500 dark:text-indigo-400",
+  },
+  {
+    id: "interactive-ai-basics",
+    title: "交互式入门AI学习",
+    url: "https://pmaker.space/",
+    icon: Gamepad2,
+    bgColor: "bg-cyan-50 dark:bg-cyan-500/15",
+    iconColor: "text-cyan-500 dark:text-cyan-400",
+  },
+  {
+    id: "doubao-work-guide",
+    title: "豆包工作入门手册",
+    url: "https://doubaowork.homes/",
+    icon: Briefcase,
+    bgColor: "bg-orange-50 dark:bg-orange-500/15",
+    iconColor: "text-orange-500 dark:text-orange-400",
+  },
+  {
+    id: "codex-guide",
+    title: "codex入门手册",
+    url: "https://codexguide.ai/",
+    icon: Code2,
+    bgColor: "bg-fuchsia-50 dark:bg-fuchsia-500/15",
+    iconColor: "text-fuchsia-500 dark:text-fuchsia-400",
+  },
+  {
+    id: "cola-skills",
+    title: "精选skills",
+    url: "https://colaskill.com/zh/",
+    icon: BadgeCheck,
+    bgColor: "bg-lime-50 dark:bg-lime-500/15",
+    iconColor: "text-lime-600 dark:text-lime-400",
+  },
+  {
+    id: "interactive-agent-learn",
+    title: "交互式智能体学习",
+    url: "https://xueai.miyang.cn/",
+    icon: Bot,
+    bgColor: "bg-purple-50 dark:bg-purple-500/15",
+    iconColor: "text-purple-500 dark:text-purple-400",
   },
 ];
 
@@ -169,10 +209,10 @@ export default function VibeCodingPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
           <Sparkles size={28} className="text-brand-500" strokeWidth={1.5} />
-          Vibe coding
+          AI学习
         </h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          探索 AI 编程学习资源与教程 · 拖拽卡片可自由移动
+          探索 AI 学习资源与教程 · 拖拽卡片可自由移动
         </p>
       </div>
 
