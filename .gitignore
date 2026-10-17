@@ -148,3 +148,4 @@ test-stale-process.ps1
 src/shared/utils/browserViewCleanup.js
 内置提供商API_URL清单.csv
 open-sse/translator/formats/responsesApi.js
+一键启动.bat

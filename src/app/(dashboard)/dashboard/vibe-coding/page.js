@@ -126,7 +126,7 @@ function VibeCard({ title, url, icon: Icon, bgColor, iconColor, onClick }) {
   return (
     <div
       className={cn(
-        "group relative flex flex-col items-center justify-center p-8 rounded-2xl min-h-[180px] w-full",
+        "group relative flex flex-col items-center justify-center p-4 rounded-xl min-h-[112px] w-full",
         "bg-gradient-to-br from-white via-white to-zinc-50",
         "dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50",
         "border border-zinc-200/80 dark:border-zinc-700/50",
@@ -142,14 +142,14 @@ function VibeCard({ title, url, icon: Icon, bgColor, iconColor, onClick }) {
       onClick={onClick}
     >
       {/* 拖拽手柄 */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-30 transition-opacity duration-200 cursor-move">
-        <GripVertical size={16} className="text-zinc-400 dark:text-zinc-500" />
+      <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-30 transition-opacity duration-200 cursor-move">
+        <GripVertical size={14} className="text-zinc-400 dark:text-zinc-500" />
       </div>
 
       {/* 图标 */}
       <div
         className={cn(
-          "flex items-center justify-center w-16 h-16 rounded-2xl mb-5",
+          "flex items-center justify-center w-10 h-10 rounded-xl mb-2.5",
           bgColor,
           iconColor,
           "shadow-inner",
@@ -157,16 +157,16 @@ function VibeCard({ title, url, icon: Icon, bgColor, iconColor, onClick }) {
           "group-hover:scale-105 group-hover:shadow-md"
         )}
       >
-        <Icon size={30} strokeWidth={1.5} />
+        <Icon size={20} strokeWidth={1.5} />
       </div>
 
       {/* 标题 */}
-      <h3 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100 text-center">
+      <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 text-center leading-snug">
         {title}
       </h3>
 
       {/* 悬停提示 */}
-      <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         点击进入 →
       </p>
     </div>
@@ -206,7 +206,7 @@ export default function VibeCodingPage() {
   return (
     <div className="min-h-screen p-8" ref={containerRef}>
       {/* 页面标题 */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-3">
           <Sparkles size={28} className="text-brand-500" strokeWidth={1.5} />
           AI学习
@@ -217,7 +217,7 @@ export default function VibeCodingPage() {
       </div>
 
       {/* 卡片网格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl relative">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 max-w-6xl relative">
         {vibeCards.map((card) => {
           const position = positions[card.id] || { x: 0, y: 0 };
           return (

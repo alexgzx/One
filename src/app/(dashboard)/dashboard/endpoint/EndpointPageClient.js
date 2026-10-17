@@ -578,7 +578,9 @@ export default function APIPageClient({ machineId }) {
   const currentEndpoint = baseUrl;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+      {/* 左列：API 端点 + Token 节省器 */}
+      <div className="flex flex-col gap-8">
       {/* Endpoint Card */}
       <Card>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -599,17 +601,17 @@ export default function APIPageClient({ machineId }) {
         </div>
       </Card>
 
-      {/* Token Saver (RTK + Caveman) */}
-      <Card id="rtk">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
+      {/* Token Saver (RTK + Caveman) — 紧凑版 */}
+      <Card id="rtk" padding="sm">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-semibold flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">bolt</span>
             Token Saver
           </h2>
         </div>
-        <div className="flex items-center justify-between pt-2 pb-4 border-b border-border gap-4">
+        <div className="flex items-center justify-between py-3 border-b border-border gap-4">
           <div className="min-w-0 flex-1">
-            <p className="font-medium">
+            <p className="font-medium text-sm">
               压缩工具输出{" "}
               <a
                 href="https://github.com/rtk-ai/rtk"
@@ -620,7 +622,7 @@ export default function APIPageClient({ machineId }) {
                 (RTK)
               </a>
             </p>
-            <p className="text-sm text-text-muted">
+            <p className="text-xs text-text-muted">
               git/grep/ls/tree/logs → 减少 60-90% 输入 Token
             </p>
           </div>
@@ -629,9 +631,9 @@ export default function APIPageClient({ machineId }) {
             onChange={() => handleRtkEnabled(!rtkEnabled)}
           />
         </div>
-        <div className="flex items-center justify-between pt-4 gap-4 flex-wrap">
+        <div className="flex items-center justify-between pt-3 gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
-            <p className="font-medium">
+            <p className="font-medium text-sm">
               压缩 LLM 输出{" "}
               <a
                 href="https://github.com/JuliusBrussee/caveman"
@@ -642,7 +644,7 @@ export default function APIPageClient({ machineId }) {
                 (Caveman)
               </a>
             </p>
-            <p className="text-sm text-text-muted">
+            <p className="text-xs text-text-muted">
               简洁风格系统提示词 → 减少约 65% 输出 Token（最高 87%）
             </p>
           </div>
@@ -677,6 +679,7 @@ export default function APIPageClient({ machineId }) {
           </div>
         </div>
       </Card>
+      </div>
 
       {/* API Keys */}
       <Card id="require-api-key">
